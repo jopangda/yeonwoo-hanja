@@ -654,9 +654,9 @@ const wrongList=()=>ALL.filter(c=>wrong[c.id]>0).sort((a,b)=>wrong[b.id]-wrong[a
 const pool=()=>S.review?wrongList():ALL.filter(c=>S.levels.includes(c.lv));
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 let day=load('hj-day',null);
-function dayLog(){if(!day||day.date!==today())day={date:today(),ok:[],bad:[],rounds:{match:0,flash:0,quiz:0,write:0},eventId:null,sent:false};return day}
-function logChar(c,ok){const d=dayLog(),a=ok?d.ok:d.bad;if(!a.includes(c.h))a.push(c.h);save('hj-day',d)}
-function logRound(){const d=dayLog();d.rounds[S.mode]=(d.rounds[S.mode]||0)+1;save('hj-day',d)}
+function dayLog(){if(day&&day.date!==today()&&day.dirty){const old=day;sendDay(old).catch(()=>{})}if(!day||day.date!==today())day={date:today(),ok:[],bad:[],rounds:{match:0,flash:0,quiz:0,write:0},eventId:null,sent:false};return day}
+function logChar(c,ok){const d=dayLog(),a=ok?d.ok:d.bad;if(!a.includes(c.h))a.push(c.h);d.dirty=true;save('hj-day',d);scheduleSync()}
+function logRound(){const d=dayLog();d.rounds[S.mode]=(d.rounds[S.mode]||0)+1;d.dirty=true;save('hj-day',d);scheduleSync(3000)}
 function miss(c){logChar(c,false);wrong[c.id]=(wrong[c.id]||0)+1;save('hj-wrong',wrong);renderLevels()}
 function hit(c){logChar(c,true);if(!wrong[c.id])return;wrong[c.id]--;if(wrong[c.id]<=0)delete wrong[c.id];save('hj-wrong',wrong);renderLevels()}
 const say=c=>`${c.hun} ${c.eum}`;
@@ -745,18 +745,39 @@ function note(msg){const t=$('#toast');t.replaceChildren(el('div',{},msg));t.cla
 const CAL='pgbf8kit0j7s9f54h3mjf6lla0@group.calendar.google.com',GC='Google Calendar';
 function findId(o,depth=0){if(!o||typeof o!=='object'||depth>3)return null;if(typeof o.eventId==='string')return o.eventId;if(typeof o.id==='string')return o.id;for(const v of Object.values(o)){const r=findId(v,depth+1);if(r)return r}return null}
 let calBusy=false;
+function dayBody(d){const cfg=window.HJ_CONFIG||{};return JSON.stringify({key:cfg.key||'',date:d.date,ok:d.ok,bad:d.bad,rounds:d.rounds})}
+function markSent(d){
+  d.dirty=false;if(day===d)save('hj-day',d);
+  const n=new Date();$('#calBtn').textContent=`기록됨 ✓ ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+async function sendDay(d){
+  const cfg=window.HJ_CONFIG||{};
+  if(!cfg.endpoint||(!d.ok.length&&!d.bad.length))return null;
+  const stamp=d.ok.length+'/'+d.bad.length+'/'+JSON.stringify(d.rounds);
+  const res=await fetch(cfg.endpoint,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:dayBody(d)});
+  const out=await res.json();
+  if(out&&out.ok&&stamp===d.ok.length+'/'+d.bad.length+'/'+JSON.stringify(d.rounds))markSent(d);
+  return out;
+}
+let syncT=null;
+function scheduleSync(ms=15000){clearTimeout(syncT);syncT=setTimeout(()=>{const d=dayLog();if(d.dirty&&!calBusy)sendDay(d).catch(()=>{})},ms)}
+function flushSync(){
+  const cfg=window.HJ_CONFIG||{},d=day;
+  if(!d||!d.dirty||!cfg.endpoint||(!d.ok.length&&!d.bad.length))return;
+  try{navigator.sendBeacon(cfg.endpoint,new Blob([dayBody(d)],{type:'text/plain;charset=utf-8'}))}catch(e){}
+}
 async function syncCal(){
   if(calBusy)return;
   const d=dayLog(),cfg=window.HJ_CONFIG||{};
-  if(!d.ok.length&&!d.bad.length){note('오늘 공부한 내용이 아직 없어요. 한 판 하고 다시 눌러 주세요.');return}
+  if(!d.ok.length&&!d.bad.length){note('오늘 공부한 내용이 아직 없어요. 한 판 하면 자동으로 기록돼요.');return}
   if(!cfg.endpoint){note('기록 주소가 아직 설정되지 않았어요. config.js에 앱스 스크립트 주소를 넣어 주세요.');return}
   calBusy=true;$('#calBtn').textContent='기록하는 중…';
   try{
-    const res=await fetch(cfg.endpoint,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:cfg.key||'',date:d.date,ok:d.ok,bad:d.bad,rounds:d.rounds})});
-    const out=await res.json();
-    note(out&&out.ok?"'연우일정' 캘린더와 구글 시트에 기록했어요.":'기록하지 못했어요: '+((out&&out.error)||'알 수 없는 오류'));
-  }catch(e){note('기록됐는지 확실하지 않아요. 인터넷 연결을 확인하고, 캘린더를 본 뒤 필요하면 다시 눌러 주세요.')}
-  calBusy=false;$('#calBtn').textContent='기록 남기기';
+    const out=await sendDay(d);
+    if(out&&out.ok)note("'연우일정' 캘린더와 구글 시트에 기록했어요.");
+    else{$('#calBtn').textContent='기록 남기기';note('기록하지 못했어요: '+((out&&out.error)||'알 수 없는 오류'))}
+  }catch(e){$('#calBtn').textContent='기록 남기기';note('기록됐는지 확실하지 않아요. 인터넷 연결을 확인해 주세요. 연결되면 자동으로 다시 보내요.')}
+  calBusy=false;
 }
 function showOv(title,sub,again,stamp=true){
   const ov=$('#ov');
@@ -1055,6 +1076,8 @@ function start(data){
   S.levels=(S.levels||[]).filter(k=>LV.some(l=>l.k===k));if(!S.levels.length)S.levels=['8'];
   $('#stampBtn').onclick=showFriends;
   $('#calBtn').onclick=syncCal;
+  addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSync()});addEventListener('pagehide',flushSync);addEventListener('online',()=>scheduleSync(2000));
+  if(day&&day.dirty)scheduleSync(2000);
   $('#photoBtn').onclick=photoMenu;$('#photoIn').onchange=pickPhoto;renderPhoto();
   $('#sfxBtn').onclick=()=>{S.sfx=!S.sfx;savePrefs();renderTools()};
   $('#voiceBtn').onclick=()=>{S.voice=!S.voice;savePrefs();renderTools();if(!S.voice){try{speechSynthesis.cancel()}catch(e){}try{ttsNS&&ttsNS.stop()}catch(e){}}};

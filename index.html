@@ -214,6 +214,8 @@ h1{color:var(--ink);text-shadow:0 2px 0 #fff}
 .mark.ph{width:58px;height:58px;overflow:hidden;border:3px solid #fff}
 .mark img{width:100%;height:100%;object-fit:cover;display:block}
 .ovph{width:104px;height:104px;border-radius:50%;object-fit:cover;border:5px solid var(--sun);box-shadow:0 4px 0 var(--line)}
+.ovph.mini{object-fit:contain;background:#fff;border-radius:24px;width:128px;height:128px}
+.mark.ph{background:#fff}
 .plph{width:30px;height:30px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px}
 /* ---- 태블릿(갤럭시 탭 S9 FE·아이패드 프로) 가로 화면 ---- */
 html,body{overscroll-behavior:none}
@@ -782,7 +784,7 @@ async function syncCal(){
 function showOv(title,sub,again,stamp=true){
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':title},
-    stamp&&(own||WIN_PHOTO)?el('img',{class:'ovph',src:own||WIN_PHOTO,alt:''}):null,
+    stamp&&(own||WIN_PHOTO)?el('img',{class:'ovph'+(own?'':' mini'),src:own||WIN_PHOTO,alt:''}):null,
     stamp?el('div',{class:'seal','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요')):null,
     el('h2',{},title),
     el('p',{class:'muted'},sub),
@@ -816,7 +818,7 @@ function startMode(){
 }
 
 /* ---------- 사진 ---------- */
-const DEF_PHOTO='',WIN_PHOTO='';
+const DEF_PHOTO='yeonu-mini-face.jpg',WIN_PHOTO='yeonu-mini.jpg';
 let own=load('hj-photo',null),photo=own||DEF_PHOTO;
 function renderPhoto(){
   const m=$('#mark');

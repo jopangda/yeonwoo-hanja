@@ -817,8 +817,8 @@ function renderTabs(){
   $('#tabs').replaceChildren(...MODES.map(m=>el('button',{class:'tab',role:'tab','aria-selected':String(S.mode===m.k),onclick:()=>{S.mode=m.k;savePrefs();renderTabs();startMode()}},el('span',{class:'ti','aria-hidden':'true'},m.ic),m.name)));
 }
 function renderTools(){
-  $('#stampN').textContent=stamps;
-  $('#crownN').textContent=stamps>=FRIENDS.length?Math.floor((stamps-FRIENDS.length)/10)+1:0;
+  $('#stampN').textContent=stamps%FRIENDS.length;
+  $('#crownN').textContent=Math.floor(stamps/FRIENDS.length);
   $('#sfxBtn').setAttribute('aria-pressed',String(S.sfx));
   $('#voiceBtn').setAttribute('aria-pressed',String(S.voice));
 }
@@ -913,10 +913,12 @@ function sceneEl(sc,sealEl){
   }
   return el('div',{class:'duel'},fig(Y,'win','⭐',pick1(['참 잘했어요!','최고야!','해냈다!'])),sealEl);
 }
+/* 도장 20개를 다 모으면 왕관 1개로 바뀌고 도장판은 0부터 다시 시작 (stamps는 지금까지 받은 전체 개수) */
+const curStamp=()=>((stamps-1)%FRIENDS.length)+1;
 function milestone(){
-  if(stamps===12)return '열두 띠 친구가 모두 모였어요!';
-  if(stamps===FRIENDS.length)return '친구 20명 완성! 연우는 이제 한자 대장 👑';
-  if(stamps>FRIENDS.length&&(stamps-FRIENDS.length)%10===0)return `왕관 ${(stamps-FRIENDS.length)/10+1}개째! 👑`;
+  const c=curStamp();
+  if(c===12)return '열두 띠 친구가 모두 모였어요!';
+  if(c===FRIENDS.length)return `친구 20명 완성! 왕관 ${stamps/FRIENDS.length}개째 👑 도장판은 0부터 다시 시작해요`;
   return null;
 }
 function showOv(title,sub,again,stamp=true,scene=null){
@@ -925,9 +927,9 @@ function showOv(title,sub,again,stamp=true,scene=null){
     stamp?sceneEl(scene,el('div',{class:'seal sm','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요'))):null,
     el('h2',{},title),
     el('p',{class:'muted'},sub),
-    stamp?el('p',{},`도장 ${stamps}개째!`):null,
+    stamp?el('p',{},`도장 ${curStamp()}개째!`):null,
     stamp&&milestone()?el('p',{class:'mile'},milestone()):null,
-    stamp&&FRIENDS[stamps-1]?el('p',{class:'newfr'},`${FRIENDS[stamps-1][0]} ${frName(FRIENDS[stamps-1])} 도착!`):null,
+    stamp?el('p',{class:'newfr'},`${FRIENDS[curStamp()-1][0]} ${frName(FRIENDS[curStamp()-1])} 도착!`):null,
     el('div',{class:'row center',style:'margin-top:12px'},
       el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
       el('button',{class:'btn',onclick:hideOv},'닫기'))
@@ -941,9 +943,9 @@ function showFriends(){
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':'친구 모음'},
     el('h2',{},'열두 띠와 옛이야기 친구들'),
-    el('p',{class:'muted'},`도장 1개마다 한 친구씩 달려와요 · ${Math.min(stamps,FRIENDS.length)} / ${FRIENDS.length}`),
-    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 한자 대장 · 왕관 ${Math.floor((stamps-FRIENDS.length)/10)+1}개`):null,
-    el('div',{class:'friends',style:'margin:10px 0'},...FRIENDS.map((f,i)=>i<stamps?el('div',{class:'fr'},el('span',{},f[0]),frName(f)):el('div',{class:'fr lock'},el('span',{},'?'),'???'))),
+    el('p',{class:'muted'},`도장 1개마다 한 친구씩 달려와요 · ${stamps%FRIENDS.length} / ${FRIENDS.length}`),
+    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 왕관 ${Math.floor(stamps/FRIENDS.length)}개 · 20개를 다 모으면 왕관이 하나 늘고 다시 시작해요`):null,
+    el('div',{class:'friends',style:'margin:10px 0'},...FRIENDS.map((f,i)=>i<stamps%FRIENDS.length?el('div',{class:'fr'},el('span',{},f[0]),frName(f)):el('div',{class:'fr lock'},el('span',{},'?'),'???'))),
     el('button',{class:'btn primary',onclick:hideOv},'닫기')));
   ov.classList.add('show');
 }

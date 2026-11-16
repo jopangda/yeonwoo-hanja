@@ -1007,7 +1007,8 @@ function layoutGrid(){
     const H=Math.max(160,$('#stage').getBoundingClientRect().bottom-g.getBoundingClientRect().top-6),Wd=g.parentElement.clientWidth;
     let best=null;
     for(let c=2;c<=N;c++){
-      const r=Math.ceil(N/c);let h=(H-gap*(r-1))/r,w=(Wd-gap*(c-1))/c;
+      if(N%c)continue; /* 빈칸 없이 꽉 차는 배치만 */
+      const r=N/c;let h=(H-gap*(r-1))/r,w=(Wd-gap*(c-1))/c;
       w=Math.min(w,h);h=Math.min(h,w/.75);
       if(!best||w*h>best.a+1)best={c,w,h,a:w*h};
     }
@@ -1015,7 +1016,7 @@ function layoutGrid(){
     return;
   }
   g.style.removeProperty('--ar');
-  const cols=colsFor(N),rows=Math.ceil(N/cols);
+  let cols=colsFor(N);if(N%cols)cols=N%3===0?3:2;const rows=Math.ceil(N/cols);
   const availH=Math.max(300,innerHeight-(g.getBoundingClientRect().top+scrollY)-20);
   const cardH=(availH-gap*(rows-1))/rows;
   const pw=g.parentElement.clientWidth;
@@ -1023,7 +1024,7 @@ function layoutGrid(){
   g.style.setProperty('--cols',cols);g.style.maxWidth=w+'px';
 }
 function newMatch(){
-  if(![4,6,10].includes(S.pairs))S.pairs=6;
+  if(![4,6,9].includes(S.pairs))S.pairs=6;
   const p=pool(),n=Math.min(S.pairs,p.length);
   const picks=shuffle(p).slice(0,n);
   const cards=shuffle(picks.flatMap(c=>[{c,side:'h'},{c,side:'p'}])).map((x,i)=>({...x,i,open:false,done:false}));
@@ -1032,7 +1033,7 @@ function newMatch(){
 }
 function drawMatch(){
   const opts=el('div',{class:'bar'},
-    el('div',{class:'seg',role:'group','aria-label':'카드 수'},...[4,6,10].map(k=>el('button',{class:'btn sm','aria-pressed':String(S.pairs===k),onclick:()=>{S.pairs=k;savePrefs();newMatch()}},`${k}쌍`))),
+    el('div',{class:'seg',role:'group','aria-label':'카드 수'},...[4,6,9].map(k=>el('button',{class:'btn sm','aria-pressed':String(S.pairs===k),onclick:()=>{S.pairs=k;savePrefs();newMatch()}},`${k}쌍`))),
     el('div',{class:'seg',role:'group','aria-label':'인원'},
       el('button',{class:'btn sm','aria-pressed':String(S.players===1),onclick:()=>{S.players=1;savePrefs();newMatch()}},'혼자'),
       el('button',{class:'btn sm','aria-pressed':String(S.players===2),onclick:()=>{S.players=2;savePrefs();newMatch()}},'연우 vs 아빠')),

@@ -1182,7 +1182,14 @@ function start(data){
    const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement)||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;
    const upd=()=>{fb.hidden=!req||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;fb.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'전체 화면 끝내기':'전체 화면'};
    fb.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.'))}}catch(e){note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.')}};
-   addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();}
+   addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();
+   /* 터치 기기: 첫 터치 때 자동으로 전체 화면 (브라우저는 터치 없이 전체 화면을 허용하지 않음) */
+   if(req&&matchMedia('(pointer:coarse)').matches){
+     const auto=()=>{removeEventListener('pointerup',auto,true);removeEventListener('click',auto,true);
+       if(matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||document.fullscreenElement||document.webkitFullscreenElement)return;
+       try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch(e){}};
+     addEventListener('pointerup',auto,true);addEventListener('click',auto,true);
+   }}
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSync()});addEventListener('pagehide',flushSync);addEventListener('online',()=>scheduleSync(2000));
   if(day&&day.dirty)scheduleSync(2000);
   $('#photoBtn').onclick=photoMenu;$('#photoIn').onchange=pickPhoto;renderPhoto();

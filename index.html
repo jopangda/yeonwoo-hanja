@@ -289,6 +289,7 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       <button class="btn sm" id="photoBtn">사진 넣기</button>
       <input type="file" id="photoIn" accept="image/*" hidden>
       <button class="btn sm" id="calBtn">기록 남기기</button>
+      <button class="btn sm" id="fsBtn" hidden>전체 화면</button>
       <button class="btn sm" id="chkBtn">소리 확인</button>
       <button class="btn sm tog" id="sfxBtn" aria-pressed="true">효과음</button>
       <button class="btn sm tog" id="voiceBtn" aria-pressed="true">읽어주기</button>
@@ -684,33 +685,39 @@ const sfx={
   bad:()=>{tone(330,.16,'square',.2);tone(262,.26,'square',.2,.14)},
   win:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.34,'triangle',.45,i*.12)),
 };
-let koVoice=null,ttsNS=null,spoke=false;
-const isAndroid=/Android/i.test(navigator.userAgent);
+let koVoice=null,spoke=false,spErr='',uttKeep=null;
 function pickVoice(){try{koVoice=speechSynthesis.getVoices().find(v=>/^ko/i.test(v.lang))||null}catch(e){}}
-function speakText(text){
+function speakText(text,tryNo=0){
   if(!('speechSynthesis' in window))return;
   try{
     const busy=speechSynthesis.speaking||speechSynthesis.pending;
     if(busy)speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
-    u.lang='ko-KR';u.rate=.9;u.pitch=1.1;u.volume=1;
-    if(koVoice&&!isAndroid)u.voice=koVoice;
-    u.onstart=()=>{spoke=true};
-    const go=()=>{try{speechSynthesis.resume();speechSynthesis.speak(u)}catch(e){}};
-    if(busy)setTimeout(go,150);else go();
-  }catch(e){}
+    uttKeep=u; /* 안드로이드에서 읽기 전에 사라지지 않게 붙잡아 둠 */
+    if(tryNo===0){u.lang='ko-KR';if(koVoice)u.voice=koVoice}
+    else if(tryNo===1){u.lang='ko-KR'}
+    /* tryNo 2: 언어·음성 지정 없이 기기 기본 음성 */
+    u.rate=.9;u.volume=1;
+    let started=false;
+    u.onstart=()=>{started=true;spoke=true};
+    u.onend=()=>{started=true};
+    u.onerror=e=>{spErr=(e&&e.error)||'error';if(!started&&tryNo<2&&spErr!=='interrupted'&&spErr!=='canceled'){started=true;speakText(text,tryNo+1)}};
+    const go=()=>{try{speechSynthesis.speak(u)}catch(e){spErr=String(e)}};
+    if(busy)setTimeout(go,180);else go();
+    setTimeout(()=>{if(!started&&uttKeep===u&&tryNo<2){try{speechSynthesis.cancel()}catch(e){}setTimeout(()=>speakText(text,tryNo+1),120)}},1600);
+  }catch(e){spErr=String(e)}
 }
 function speak(c){if(S.voice)speakText(say(c))}
 function soundCheck(){
-  spoke=false;const a=ac();
+  spoke=false;spErr='';const a=ac();
   [523,659,784,1047].forEach((f,i)=>{try{const t=a.currentTime+.05+i*.15,o=a.createOscillator(),g=a.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.32)}catch(e){}});
-  setTimeout(()=>speakText('소리가 잘 들려요'),800);
+  speakText('소리가 잘 들려요');
   setTimeout(()=>{
-    let n=0,all=0;try{const v=speechSynthesis.getVoices();all=v.length;n=v.filter(x=>/^ko/i.test(x.lang)).length}catch(e){}
+    let n=0,all=0,langs='';try{const v=speechSynthesis.getVoices();all=v.length;n=v.filter(x=>/^ko/i.test(x.lang)).length;langs=[...new Set(v.map(x=>x.lang))].slice(0,6).join(',')}catch(e){}
     const fx=a&&a.state==='running'?'효과음 정상':'효과음 막힘('+(a?a.state:'없음')+')';
-    const vo=!('speechSynthesis' in window)?'읽어주기: 이 브라우저는 지원 안 함':spoke?'읽어주기 정상':n?'읽어주기: 음성은 있는데 시작되지 않음':all?'읽어주기: 한국어 음성 없음':'읽어주기: 음성 목록이 비어 있음';
-    note(`${fx} · ${vo}. 띠링 소리와 "소리가 잘 들려요"가 안 들리면 태블릿 옆 버튼으로 '미디어' 음량을 올려 주세요.`);
-  },2600);
+    const vo=!('speechSynthesis' in window)?'읽어주기: 이 브라우저는 지원 안 함':spoke?'읽어주기 시작됨':'읽어주기 시작 안 됨';
+    note(`${fx} · ${vo} · 음성 ${all}개(한국어 ${n}개${langs?': '+langs:''})${spErr?' · 오류 '+spErr:''}`);
+  },5200);
 }
 function burst(x,y,n=10){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -1032,16 +1039,14 @@ function newWrite(){
     if(S.mode!=='write')return;
     const okW=c=>window.STROKES&&window.STROKES[c.h]&&window.STROKES[c.h].strokes.length===c.tot;
     const p=pool().filter(okW);W.skip=pool().filter(c=>!okW(c)).map(c=>c.h);
-    W.list=S.order==='mix'?shuffle(p):p;drawWrite();
+    W.list=shuffle(p);drawWrite();
   },()=>{hwReady=null;if(S.mode==='write')$('#stage').replaceChildren(el('div',{class:'empty'},'획순 자료를 불러오지 못했어요. 페이지를 새로 고쳐 주세요.'))});
 }
 function drawWrite(){
   const WM=[['demo','획순 보기'],['trace','따라 쓰기'],['blind','안 보고 쓰기']];
   const opts=el('div',{class:'bar'},
     el('div',{class:'seg',role:'group','aria-label':'쓰기 방법'},...WM.map(([k,nm])=>el('button',{class:'btn sm','aria-pressed':String(W.mode===k),onclick:()=>{W.mode=k;drawWrite()}},nm))),
-    el('div',{class:'seg',role:'group','aria-label':'순서'},
-      el('button',{class:'btn sm','aria-pressed':String(S.order==='seq'),onclick:()=>{S.order='seq';savePrefs();newWrite()}},'순서대로'),
-      el('button',{class:'btn sm','aria-pressed':String(S.order==='mix'),onclick:()=>{S.order='mix';savePrefs();newWrite()}},'섞어서')),
+    el('button',{class:'btn sm',onclick:newWrite},'다시 섞기'),
     el('div',{class:'muted'},`오늘 쓴 글자 ${W.done}`));
   if(!W.list.length){$('#stage').replaceChildren(opts,el('div',{class:'empty'},'고른 글자 중에 획순 자료가 있는 글자가 없어요.'));return}
   const c=W.list[W.i],n=c.tot;
@@ -1078,7 +1083,7 @@ function drawWrite(){
       if(W.done%5===0){award();showOv('다섯 글자 썼어요!',`오늘 쓴 글자 ${W.done}자`,()=>moveW(1))}
     }});
 }
-function moveW(d){W.i=(W.i+d+W.list.length)%W.list.length;drawWrite()}
+function moveW(d){if(d>0&&W.i===W.list.length-1){const last=W.list[W.i];W.list=shuffle(W.list);if(W.list.length>1&&W.list[0]===last)W.list.push(W.list.shift());W.i=0}else W.i=(W.i+d+W.list.length)%W.list.length;drawWrite()}
 
 /* ---------- boot ---------- */
 function start(data){
@@ -1086,6 +1091,11 @@ function start(data){
   S.levels=(S.levels||[]).filter(k=>LV.some(l=>l.k===k));if(!S.levels.length)S.levels=['8'];
   $('#stampBtn').onclick=showFriends;
   $('#calBtn').onclick=syncCal;$('#chkBtn').onclick=soundCheck;
+  {const fb=$('#fsBtn'),de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+   const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement)||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;
+   const upd=()=>{fb.hidden=!req||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;fb.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'전체 화면 끝내기':'전체 화면'};
+   fb.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.'))}}catch(e){note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.')}};
+   addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();}
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSync()});addEventListener('pagehide',flushSync);addEventListener('online',()=>scheduleSync(2000));
   if(day&&day.dirty)scheduleSync(2000);
   $('#photoBtn').onclick=photoMenu;$('#photoIn').onchange=pickPhoto;renderPhoto();

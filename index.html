@@ -784,7 +784,7 @@ async function syncCal(){
 function showOv(title,sub,again,stamp=true,img=null){
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':title},
-    stamp&&(img||own||WIN_PHOTO)?el('img',{class:'ovph'+(img||own?'':' mini'),src:img||own||WIN_PHOTO,alt:''}):null,
+    stamp&&(img||own||WIN_PHOTO)?el('img',{class:'ovph'+(img||!own?' mini':''),src:img||own||WIN_PHOTO,alt:''}):null,
     stamp?el('div',{class:'seal','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요')):null,
     el('h2',{},title),
     el('p',{class:'muted'},sub),
@@ -902,7 +902,7 @@ function drawStatus(){
   const s=$('#mstatus');if(!s)return;
   if(S.players===2){
     s.replaceChildren(
-      el('div',{class:'players'},...['연우','아빠'].map((nm,i)=>el('div',{class:'pl'+(M.turn===i?' on':'')},i===0&&photo?el('img',{class:'plph',src:photo,alt:''}):i===1?el('img',{class:'plph',src:'dad.svg',alt:''}):null,nm,' ',el('b',{},M.score[i])))),
+      el('div',{class:'players'},...['연우','아빠'].map((nm,i)=>el('div',{class:'pl'+(M.turn===i?' on':'')},i===0&&photo?el('img',{class:'plph',src:photo,alt:''}):i===1?el('img',{class:'plph',src:'dad-mini-face.jpg',alt:''}):null,nm,' ',el('b',{},M.score[i])))),
       el('div',{style:'font-size:22px'},M.turn===0?'연우 차례!':'아빠 차례!'));
   }else{
     s.replaceChildren(el('div',{},'찾은 짝 ',el('b',{style:'font-weight:400;font-size:22px;color:var(--seal)'},`${M.found} / ${M.n}`)),el('div',{class:'muted'},`뒤집은 횟수 ${M.moves}`));
@@ -932,7 +932,7 @@ function endMatch(){
   let title,sub;
   if(S.players===2){const [y,d]=M.score;title=y>d?'연우 승리!':y<d?'아빠 승리!':'비겼어요!';sub=`연우 ${y} : ${d} 아빠`}
   else{title='다 찾았어요!';sub=`${M.n}쌍을 ${M.moves}번 만에 찾았어요`}
-  award();showOv(title,sub,newMatch,true,S.players===2&&M.score[1]>M.score[0]?'dad.svg':null);
+  award();showOv(title,sub,newMatch,true,S.players===2?(M.score[1]>M.score[0]?'dad-mini.jpg':M.score[1]===M.score[0]?'pair-mini.jpg':null):null);
 }
 
 /* ---------- 카드 공부 ---------- */

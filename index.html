@@ -256,7 +256,10 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @keyframes hop{to{transform:translateY(-12px) rotate(3deg)}}
 @keyframes tear{from{transform:translateY(0);opacity:1}to{transform:translateY(44px);opacity:0}}
 .seal.sm{width:92px;height:92px;border-width:5px;border-radius:50%;margin:0}
-.seal.sm span:first-child{font-size:26px}.seal.sm span:last-child{font-size:15px}
+.seal.sm span:first-child{font-size:26px}.seal.sm span:last-child{font-size:15px}.gift{display:flex;align-items:center;gap:12px;background:var(--sun);border-radius:20px;padding:10px 16px;margin:6px 0;text-align:left;font-size:19px;animation:hop .6s ease-in-out infinite alternate}
+.gift span{font-family:var(--emoji);font-size:44px;line-height:1}
+.gift b{font-weight:400;color:var(--seal);font-size:22px}
+.gift small{font-size:14px;color:var(--ink);opacity:.75}
 .mile{font-size:19px;color:var(--c6)}
 .crown{margin-left:8px;padding-left:10px;border-left:2px solid var(--line);display:inline-flex;align-items:center;gap:5px}
 .crown span{font-family:var(--emoji)}
@@ -822,7 +825,8 @@ function renderTools(){
   $('#sfxBtn').setAttribute('aria-pressed',String(S.sfx));
   $('#voiceBtn').setAttribute('aria-pressed',String(S.voice));
 }
-function award(){logRound();stamps++;save('hj-stamps',stamps);renderTools()}
+function award(){logRound();stamps++;save('hj-stamps',stamps);renderTools();if(stamps%(FRIENDS.length*5)===0)setTimeout(pushState,400)}
+const giftNow=()=>stamps>0&&stamps%(FRIENDS.length*5)===0;
 let tT;
 function toast(c){
   const t=$('#toast');
@@ -929,6 +933,7 @@ function showOv(title,sub,again,stamp=true,scene=null){
     el('p',{class:'muted'},sub),
     stamp?el('p',{},`도장 ${curStamp()}개째!`):null,
     stamp&&milestone()?el('p',{class:'mile'},milestone()):null,
+    stamp&&giftNow()?el('div',{class:'gift'},el('span',{'aria-hidden':'true'},'🎁'),el('div',{},el('b',{},`왕관 ${stamps/FRIENDS.length}개 달성!`),el('div',{},'아빠에게 선물을 요청해 주세요'),el('small',{},'아빠 메일로도 알려 드려요'))):null,
     stamp?el('p',{class:'newfr'},`${FRIENDS[curStamp()-1][0]} ${frName(FRIENDS[curStamp()-1])} 도착!`):null,
     el('div',{class:'row center',style:'margin-top:12px'},
       el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),

@@ -86,7 +86,7 @@ h1{margin:0;font-size:28px;font-weight:400;letter-spacing:-.5px;text-wrap:balanc
 .face{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
 .face.b{transform:rotateY(180deg)}
 .grid{display:grid;gap:10px;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));margin:0 auto;width:100%}
-.mcard{aspect-ratio:3/4;width:100%}
+.mcard{aspect-ratio:var(--ar,3/4);width:100%}
 .mcard .back{background:linear-gradient(180deg,var(--seal) 0 20%,var(--c8) 0 40%,var(--c7b) 0 60%,var(--c7) 0 80%,var(--c6b) 0);border:3px solid #fff;box-shadow:0 3px 0 rgba(29,33,48,.12)}
 .knot{width:44cqw;height:44cqw;border-radius:50%;background:#fff;color:var(--seal);font-family:var(--display);font-weight:900;font-size:26cqw;display:grid;place-items:center;box-shadow:0 2px 0 rgba(0,0,0,.12)}
 .mcard .front{background:var(--card);border:3px solid var(--lc);box-shadow:0 3px 0 rgba(29,33,48,.08)}
@@ -812,7 +812,7 @@ function toggleLevel(k){
   afterLevels();
 }
 function afterLevels(){S.review=false;renderLevels();savePrefs();startMode()}
-const MODES=[{k:'match',name:'짝 맞추기',ic:'🎴'},{k:'flash',name:'카드 공부',ic:'📖'},{k:'quiz',name:'퀴즈',ic:'🎯'},{k:'write',name:'쓰기',ic:'✏️'}];
+const MODES=[{k:'match',name:'짝 맞추기',ic:'🧩'},{k:'flash',name:'카드 공부',ic:'📖'},{k:'quiz',name:'퀴즈',ic:'🎯'},{k:'write',name:'쓰기',ic:'✏️'}];
 function renderTabs(){
   $('#tabs').replaceChildren(...MODES.map(m=>el('button',{class:'tab',role:'tab','aria-selected':String(S.mode===m.k),onclick:()=>{S.mode=m.k;savePrefs();renderTabs();startMode()}},el('span',{class:'ti','aria-hidden':'true'},m.ic),m.name)));
 }
@@ -1001,8 +1001,22 @@ function colsFor(n){
 }
 function layoutGrid(){
   const g=$('#mgrid');if(!g||!M)return;
-  const N=M.cards.length,cols=colsFor(N),rows=Math.ceil(N/cols),gap=10;
-  const availH=fitQ.matches?Math.max(180,$('#stage').getBoundingClientRect().bottom-g.getBoundingClientRect().top-6):Math.max(300,innerHeight-(g.getBoundingClientRect().top+scrollY)-20);
+  const N=M.cards.length,gap=10;
+  if(fitQ.matches){
+    /* 가로 화면: 남은 공간에서 카드가 가장 커지는 줄·칸 수를 고름 */
+    const H=Math.max(160,$('#stage').getBoundingClientRect().bottom-g.getBoundingClientRect().top-6),Wd=g.parentElement.clientWidth;
+    let best=null;
+    for(let c=2;c<=N;c++){
+      const r=Math.ceil(N/c);let h=(H-gap*(r-1))/r,w=(Wd-gap*(c-1))/c;
+      w=Math.min(w,h);h=Math.min(h,w/.75);
+      if(!best||w*h>best.a+1)best={c,w,h,a:w*h};
+    }
+    g.style.setProperty('--cols',best.c);g.style.maxWidth=Math.floor(best.c*best.w+gap*(best.c-1))+'px';g.style.setProperty('--ar',(best.w/best.h).toFixed(3));
+    return;
+  }
+  g.style.removeProperty('--ar');
+  const cols=colsFor(N),rows=Math.ceil(N/cols);
+  const availH=Math.max(300,innerHeight-(g.getBoundingClientRect().top+scrollY)-20);
   const cardH=(availH-gap*(rows-1))/rows;
   const pw=g.parentElement.clientWidth;
   const w=Math.min(pw,Math.max(260,cols*cardH*.75+gap*(cols-1)));

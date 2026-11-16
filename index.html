@@ -824,6 +824,11 @@ function renderTools(){
 }
 function award(){logRound();stamps++;save('hj-stamps',stamps);renderTools()}
 let tT;
+function toast(c){
+  const t=$('#toast');
+  t.replaceChildren(el('span',{class:'te'},c.emo),el('span',{class:'th'},c.h),el('div',{},el('b',{style:'font-weight:400;font-size:20px'},say(c)),el('div',{class:'tsub'},c.hint)));
+  t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),3200);
+}
 function note(msg){const t=$('#toast');t.replaceChildren(el('div',{},msg));t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),4500)}
 const CAL='pgbf8kit0j7s9f54h3mjf6lla0@group.calendar.google.com',GC='Google Calendar';
 function findId(o,depth=0){if(!o||typeof o!=='object'||depth>3)return null;if(typeof o.eventId==='string')return o.eventId;if(typeof o.id==='string')return o.id;for(const v of Object.values(o)){const r=findId(v,depth+1);if(r)return r}return null}

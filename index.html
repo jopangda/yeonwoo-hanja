@@ -258,6 +258,9 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .seal.sm{width:92px;height:92px;border-width:5px;border-radius:50%;margin:0}
 .seal.sm span:first-child{font-size:26px}.seal.sm span:last-child{font-size:15px}
 .mile{font-size:19px;color:var(--c6)}
+.crown{margin-left:8px;padding-left:10px;border-left:2px solid var(--line);display:inline-flex;align-items:center;gap:5px}
+.crown span{font-family:var(--emoji)}
+.crown b{color:#E0A100}
 .ctrl{display:flex;flex-direction:column;gap:14px}
 .chip.rev{--lc:var(--seal)}
 .side{display:flex;flex-direction:column;gap:14px;align-items:center}
@@ -301,7 +304,7 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       <div><h1>연우 한자 카드놀이</h1><small>열두 띠 친구들과 함께 · 어문회 8급~6급 300자</small></div>
     </div>
     <div class="tools">
-      <button class="stampbox" id="stampBtn" title="친구 모음 보기"><span class="mini-seal" aria-hidden="true">印</span>도장 <b id="stampN">0</b></button>
+      <button class="stampbox" id="stampBtn" title="친구 모음 보기"><span class="mini-seal" aria-hidden="true">印</span>도장 <b id="stampN">0</b><span class="crown" title="왕관"><span aria-hidden="true">👑</span> 왕관 <b id="crownN">0</b></span></button>
       <button class="btn sm" id="photoBtn">사진 넣기</button>
       <input type="file" id="photoIn" accept="image/*" hidden>
       <button class="btn sm" id="calBtn">기록 남기기</button>
@@ -769,6 +772,7 @@ function renderTabs(){
 }
 function renderTools(){
   $('#stampN').textContent=stamps;
+  $('#crownN').textContent=stamps>=FRIENDS.length?Math.floor((stamps-FRIENDS.length)/10)+1:0;
   $('#sfxBtn').setAttribute('aria-pressed',String(S.sfx));
   $('#voiceBtn').setAttribute('aria-pressed',String(S.voice));
 }

@@ -1023,6 +1023,7 @@ function layoutGrid(){
   g.style.setProperty('--cols',cols);g.style.maxWidth=w+'px';
 }
 function newMatch(){
+  if(![4,6,10].includes(S.pairs))S.pairs=6;
   const p=pool(),n=Math.min(S.pairs,p.length);
   const picks=shuffle(p).slice(0,n);
   const cards=shuffle(picks.flatMap(c=>[{c,side:'h'},{c,side:'p'}])).map((x,i)=>({...x,i,open:false,done:false}));
@@ -1031,7 +1032,7 @@ function newMatch(){
 }
 function drawMatch(){
   const opts=el('div',{class:'bar'},
-    el('div',{class:'seg',role:'group','aria-label':'카드 수'},...[4,6,8].map(k=>el('button',{class:'btn sm','aria-pressed':String(S.pairs===k),onclick:()=>{S.pairs=k;savePrefs();newMatch()}},`${k}쌍`))),
+    el('div',{class:'seg',role:'group','aria-label':'카드 수'},...[4,6,10].map(k=>el('button',{class:'btn sm','aria-pressed':String(S.pairs===k),onclick:()=>{S.pairs=k;savePrefs();newMatch()}},`${k}쌍`))),
     el('div',{class:'seg',role:'group','aria-label':'인원'},
       el('button',{class:'btn sm','aria-pressed':String(S.players===1),onclick:()=>{S.players=1;savePrefs();newMatch()}},'혼자'),
       el('button',{class:'btn sm','aria-pressed':String(S.players===2),onclick:()=>{S.players=2;savePrefs();newMatch()}},'연우 vs 아빠')),

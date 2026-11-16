@@ -143,7 +143,7 @@ h1{margin:0;font-size:28px;font-weight:400;letter-spacing:-.5px;text-wrap:balanc
 .tsub{color:#C9CEDA;font-size:15px}
 #ov{position:fixed;inset:0;background:rgba(20,22,30,.55);display:none;place-items:center;z-index:10;padding:16px}
 #ov.show{display:grid}
-.ovbox{background:var(--card);border-radius:24px;padding:24px 22px;max-width:380px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.ovbox{background:var(--card);border-radius:24px;padding:18px 22px;max-width:440px;max-height:calc(100dvh - 24px);overflow:auto;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
 .ovbox h2{margin:4px 0 0;font-weight:400;font-size:30px}
 .ovbox p{margin:0}
 .seal{width:150px;height:150px;border:7px solid var(--seal);border-radius:24px;color:var(--seal);font-family:var(--display);font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;transform:rotate(-8deg);animation:stamp .55s cubic-bezier(.2,1.6,.4,1);margin:4px 0 10px}
@@ -242,6 +242,22 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 }
 .rot{display:none;background:var(--sun);border-radius:16px;padding:8px 14px;text-align:center;font-size:16px}
 
+.duel{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:2px 0 6px}
+.fig{position:relative;display:flex;flex-direction:column;align-items:center}
+.fig .top{font-family:var(--emoji);font-size:34px;line-height:1;height:40px}
+.fig img{width:124px;height:124px;object-fit:contain;background:#fff;border-radius:24px;border:4px solid var(--sun);box-shadow:0 4px 0 var(--line)}
+.fig.win img{animation:hop .55s ease-in-out infinite alternate}
+.fig.win .top{animation:hop .55s ease-in-out infinite alternate}
+.fig.lose img{width:94px;height:94px;transform:rotate(-9deg);filter:saturate(.55);border-color:var(--line)}
+.fig .say{font-size:15px;background:var(--bg);border-radius:14px;padding:4px 12px;margin-top:8px;white-space:nowrap}
+.fig.win .say{background:var(--sun)}
+.tear{position:absolute;font-family:var(--emoji);font-size:18px;top:62px;animation:tear 1s linear infinite;pointer-events:none}
+.tear.l{left:calc(50% - 26px)}.tear.r{left:calc(50% + 8px);animation-delay:.5s}
+@keyframes hop{to{transform:translateY(-12px) rotate(3deg)}}
+@keyframes tear{from{transform:translateY(0);opacity:1}to{transform:translateY(44px);opacity:0}}
+.seal.sm{width:92px;height:92px;border-width:5px;border-radius:50%;margin:0}
+.seal.sm span:first-child{font-size:26px}.seal.sm span:last-child{font-size:15px}
+.mile{font-size:19px;color:var(--c6)}
 .ctrl{display:flex;flex-direction:column;gap:14px}
 .chip.rev{--lc:var(--seal)}
 .side{display:flex;flex-direction:column;gap:14px;align-items:center}
@@ -796,14 +812,33 @@ async function syncCal(){
   }catch(e){$('#calBtn').textContent='기록 남기기';note('기록됐는지 확실하지 않아요. 인터넷 연결을 확인해 주세요. 연결되면 자동으로 다시 보내요.')}
   calBusy=false;
 }
-function showOv(title,sub,again,stamp=true,img=null){
+const pick1=a=>a[Math.random()*a.length|0];
+function fig(src,kind,top,say){return el('div',{class:'fig '+kind},el('div',{class:'top','aria-hidden':'true'},top),el('img',{src,alt:''}),kind==='lose'?[el('span',{class:'tear l','aria-hidden':'true'},'💧'),el('span',{class:'tear r','aria-hidden':'true'},'💧')]:null,el('div',{class:'say'},say))}
+function sceneEl(sc,sealEl){
+  const Y=own||'yeonu-mini.jpg',D='dad-mini.jpg';
+  if(sc&&sc.type==='duel'){
+    if(sc.winner===2)return el('div',{class:'duel'},el('div',{class:'fig win'},el('div',{class:'top','aria-hidden':'true'},'🤝'),el('img',{src:'pair-mini.jpg',style:'width:150px;height:150px',alt:''}),el('div',{class:'say'},'사이좋게 비겼어요')),sealEl);
+    const yw=sc.winner===0;
+    return el('div',{class:'duel'},
+      fig(Y,yw?'win':'lose',yw?'👑':'😢',yw?pick1(['야호! 내가 이겼다!','내가 한자 대장!','신난다!']):pick1(['아깝다! 한 판 더!','다음엔 꼭 이길 거야'])),
+      fig(D,yw?'lose':'win',yw?'😭':'👑',yw?pick1(['으앙, 졌다…','힝… 한 판 더!','연우 너무 잘해…']):pick1(['아빠가 이겼다!','한 판 더 할까?'])),sealEl);
+  }
+  return el('div',{class:'duel'},fig(Y,'win','⭐',pick1(['참 잘했어요!','최고야!','해냈다!'])),sealEl);
+}
+function milestone(){
+  if(stamps===12)return '열두 띠 친구가 모두 모였어요!';
+  if(stamps===FRIENDS.length)return '친구 20명 완성! 연우는 이제 한자 대장 👑';
+  if(stamps>FRIENDS.length&&(stamps-FRIENDS.length)%10===0)return `왕관 ${(stamps-FRIENDS.length)/10+1}개째! 👑`;
+  return null;
+}
+function showOv(title,sub,again,stamp=true,scene=null){
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':title},
-    stamp&&(img||own||WIN_PHOTO)?el('img',{class:'ovph'+(img||!own?' mini':''),src:img||own||WIN_PHOTO,alt:''}):null,
-    stamp?el('div',{class:'seal','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요')):null,
+    stamp?sceneEl(scene,el('div',{class:'seal sm','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요'))):null,
     el('h2',{},title),
     el('p',{class:'muted'},sub),
     stamp?el('p',{},`도장 ${stamps}개째!`):null,
+    stamp&&milestone()?el('p',{class:'mile'},milestone()):null,
     stamp&&FRIENDS[stamps-1]?el('p',{class:'newfr'},`${FRIENDS[stamps-1][0]} ${frName(FRIENDS[stamps-1])} 도착!`):null,
     el('div',{class:'row center',style:'margin-top:12px'},
       el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
@@ -819,6 +854,7 @@ function showFriends(){
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':'친구 모음'},
     el('h2',{},'열두 띠와 옛이야기 친구들'),
     el('p',{class:'muted'},`도장 1개마다 한 친구씩 달려와요 · ${Math.min(stamps,FRIENDS.length)} / ${FRIENDS.length}`),
+    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 한자 대장 · 왕관 ${Math.floor((stamps-FRIENDS.length)/10)+1}개`):null,
     el('div',{class:'friends',style:'margin:10px 0'},...FRIENDS.map((f,i)=>i<stamps?el('div',{class:'fr'},el('span',{},f[0]),frName(f)):el('div',{class:'fr lock'},el('span',{},'?'),'???'))),
     el('button',{class:'btn primary',onclick:hideOv},'닫기')));
   ov.classList.add('show');
@@ -947,7 +983,7 @@ function endMatch(){
   let title,sub;
   if(S.players===2){const [y,d]=M.score;title=y>d?'연우 승리!':y<d?'아빠 승리!':'비겼어요!';sub=`연우 ${y} : ${d} 아빠`}
   else{title='다 찾았어요!';sub=`${M.n}쌍을 ${M.moves}번 만에 찾았어요`}
-  award();showOv(title,sub,newMatch,true,S.players===2?(M.score[1]>M.score[0]?'dad-mini.jpg':M.score[1]===M.score[0]?'pair-mini.jpg':null):null);
+  award();showOv(title,sub,newMatch,true,S.players===2?{type:'duel',winner:M.score[0]>M.score[1]?0:M.score[0]<M.score[1]?1:2}:null);
 }
 
 /* ---------- 카드 공부 ---------- */

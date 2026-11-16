@@ -289,6 +289,7 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
       <button class="btn sm" id="photoBtn">사진 넣기</button>
       <input type="file" id="photoIn" accept="image/*" hidden>
       <button class="btn sm" id="calBtn">기록 남기기</button>
+      <button class="btn sm" id="chkBtn">소리 확인</button>
       <button class="btn sm tog" id="sfxBtn" aria-pressed="true">효과음</button>
       <button class="btn sm tog" id="voiceBtn" aria-pressed="true">읽어주기</button>
     </div>
@@ -667,8 +668,8 @@ const cvars=c=>`--lc:${c.color};--lt:${c.lt}`;
 /* ---------- sound ---------- */
 let actx=null;
 function ac(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state!=='running')actx.resume()}catch(e){}return actx}
-addEventListener('pointerdown',ac,true);addEventListener('keydown',ac,true);
-function tone(f,d,type='sine',vol=.2,when=0){
+['pointerdown','pointerup','touchend','click','keydown'].forEach(ev=>addEventListener(ev,ac,true));
+function tone(f,d,type='triangle',vol=.4,when=0){
   if(!S.sfx)return;
   try{
     const a=ac();if(!a)return;
@@ -678,31 +679,38 @@ function tone(f,d,type='sine',vol=.2,when=0){
   }catch(e){}
 }
 const sfx={
-  flip:()=>tone(700,.08,'triangle',.14),
-  good:()=>{tone(784,.16,'sine',.22);tone(1047,.28,'sine',.22,.12)},
-  bad:()=>tone(220,.22,'triangle',.16),
-  win:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.32,'sine',.2,i*.11)),
+  flip:()=>tone(880,.12,'triangle',.4),
+  good:()=>{tone(784,.18,'triangle',.45);tone(1047,.32,'triangle',.45,.13)},
+  bad:()=>{tone(330,.16,'square',.2);tone(262,.26,'square',.2,.14)},
+  win:()=>[523,659,784,1047,1319].forEach((f,i)=>tone(f,.34,'triangle',.45,i*.12)),
 };
-let koVoice=null,webBroken=!('speechSynthesis' in window),ttsNS=null;
-(async()=>{try{ttsNS=await window.claude?.use?.('tts')||null}catch(e){}})();
+let koVoice=null,ttsNS=null,spoke=false;
+const isAndroid=/Android/i.test(navigator.userAgent);
 function pickVoice(){try{koVoice=speechSynthesis.getVoices().find(v=>/^ko/i.test(v.lang))||null}catch(e){}}
-function ttsSpeak(text){
-  if(!ttsNS)return;
-  ttsNS.speak(text,{language:'ko',rate:.9}).catch(e=>{if(e&&['not_granted','capability_disabled','capability_removed'].includes(e.code))ttsNS=null});
-}
-function speak(c){
-  if(!S.voice)return;
-  const text=say(c);
-  if(webBroken){ttsSpeak(text);return}
+function speakText(text){
+  if(!('speechSynthesis' in window))return;
   try{
-    speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);let started=false;
-    u.lang='ko-KR';u.rate=.85;u.pitch=1.1;if(koVoice)u.voice=koVoice;
-    u.onstart=()=>{started=true};u.onend=()=>{started=true};
-    u.onerror=()=>{if(!started){started=true;webBroken=true;ttsSpeak(text)}};
-    speechSynthesis.speak(u);
-    setTimeout(()=>{if(!started&&ttsNS){started=true;webBroken=true;try{speechSynthesis.cancel()}catch(e){}ttsSpeak(text)}},1500);
-  }catch(e){webBroken=true;ttsSpeak(text)}
+    const busy=speechSynthesis.speaking||speechSynthesis.pending;
+    if(busy)speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='ko-KR';u.rate=.9;u.pitch=1.1;u.volume=1;
+    if(koVoice&&!isAndroid)u.voice=koVoice;
+    u.onstart=()=>{spoke=true};
+    const go=()=>{try{speechSynthesis.resume();speechSynthesis.speak(u)}catch(e){}};
+    if(busy)setTimeout(go,150);else go();
+  }catch(e){}
+}
+function speak(c){if(S.voice)speakText(say(c))}
+function soundCheck(){
+  spoke=false;const a=ac();
+  [523,659,784,1047].forEach((f,i)=>{try{const t=a.currentTime+.05+i*.15,o=a.createOscillator(),g=a.createGain();o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.32)}catch(e){}});
+  setTimeout(()=>speakText('소리가 잘 들려요'),800);
+  setTimeout(()=>{
+    let n=0,all=0;try{const v=speechSynthesis.getVoices();all=v.length;n=v.filter(x=>/^ko/i.test(x.lang)).length}catch(e){}
+    const fx=a&&a.state==='running'?'효과음 정상':'효과음 막힘('+(a?a.state:'없음')+')';
+    const vo=!('speechSynthesis' in window)?'읽어주기: 이 브라우저는 지원 안 함':spoke?'읽어주기 정상':n?'읽어주기: 음성은 있는데 시작되지 않음':all?'읽어주기: 한국어 음성 없음':'읽어주기: 음성 목록이 비어 있음';
+    note(`${fx} · ${vo}. 띠링 소리와 "소리가 잘 들려요"가 안 들리면 태블릿 옆 버튼으로 '미디어' 음량을 올려 주세요.`);
+  },2600);
 }
 function burst(x,y,n=10){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
@@ -1077,12 +1085,12 @@ function start(data){
   if(data&&typeof data==='object')Object.assign(S,data);
   S.levels=(S.levels||[]).filter(k=>LV.some(l=>l.k===k));if(!S.levels.length)S.levels=['8'];
   $('#stampBtn').onclick=showFriends;
-  $('#calBtn').onclick=syncCal;
+  $('#calBtn').onclick=syncCal;$('#chkBtn').onclick=soundCheck;
   addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSync()});addEventListener('pagehide',flushSync);addEventListener('online',()=>scheduleSync(2000));
   if(day&&day.dirty)scheduleSync(2000);
   $('#photoBtn').onclick=photoMenu;$('#photoIn').onchange=pickPhoto;renderPhoto();
   $('#sfxBtn').onclick=()=>{S.sfx=!S.sfx;savePrefs();renderTools()};
-  $('#voiceBtn').onclick=()=>{S.voice=!S.voice;savePrefs();renderTools();if(!S.voice){try{speechSynthesis.cancel()}catch(e){}try{ttsNS&&ttsNS.stop()}catch(e){}}};
+  $('#voiceBtn').onclick=()=>{S.voice=!S.voice;savePrefs();renderTools();if(!S.voice){try{speechSynthesis.cancel()}catch(e){}}};
   addEventListener('resize',()=>{if(S.mode==='match')layoutGrid()});
   addEventListener('keydown',e=>{
     if($('#ov').classList.contains('show')){if(e.key==='Escape')hideOv();return}

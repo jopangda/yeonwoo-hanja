@@ -727,7 +727,7 @@ ALL.forEach(c=>{const o=OFF[c.h]||['',0,''];c.rad=o[0];c.tot=o[1];c.full=o[2]});
 
 /* ---------- state & storage ---------- */
 function load(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
-function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(k==='hj-stamps'||k==='hj-known'||k==='hj-wrong')touchState()}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(k==='hj-stamps'||k==='hj-known'||k==='hj-wrong'||k==='hj-idiom')touchState()}
 var stateReady=false,stT=null,stDirty=false;
 const S=Object.assign({mode:'match',levels:['8'],pairs:6,players:1,sfx:true,voice:true,order:'mix',unknownOnly:false},load('hj-prefs',{}));
 let stamps=load('hj-stamps',0);
@@ -891,7 +891,9 @@ function flushSync(){
 function flushState(){const cfg=window.HJ_CONFIG||{};if(!stDirty||!stateReady||!cfg.endpoint)return;try{navigator.sendBeacon(cfg.endpoint,new Blob([stateBody('state_save')],{type:'text/plain;charset=utf-8'}))}catch(e){}}
 /* ---------- 진도 클라우드 저장 (도장·아는 글자·틀린 글자) ---------- */
 const lu0=load('hj-upd',0),stamps0=stamps;
-function statePack(){return {stamps,known:[...known].join(''),wrong:Object.entries(wrong).map(([k,v])=>k+v).join(','),upd:load('hj-upd',0)||Date.now()}}
+/* 배운 성어는 known 뒤에 '|번호,번호' 꼴로 붙여 같은 칸에 저장 */
+const idiomPack=()=>IDIOMS.map((c,i)=>idLearned.has(c.id)?i:-1).filter(i=>i>=0).join(',');
+function statePack(){return {stamps,known:[...known].join('')+'|'+idiomPack(),wrong:Object.entries(wrong).map(([k,v])=>k+v).join(','),upd:load('hj-upd',0)||Date.now()}}
 function stateBody(action){const cfg=window.HJ_CONFIG||{};return JSON.stringify(action==='state_save'?{key:cfg.key||'',action,state:statePack()}:{key:cfg.key||'',action})}
 function touchState(){try{localStorage.setItem('hj-upd',JSON.stringify(Date.now()))}catch(e){}stDirty=true;if(stateReady){clearTimeout(stT);stT=setTimeout(pushState,4000)}}
 async function pushState(){
@@ -905,6 +907,10 @@ async function pullState(){
     const o=await r.json();
     if(o&&o.ok&&o.state){
       const sv=o.state;let changed=false;
+      const kparts=String(sv.known||'').split('|');sv.known=kparts[0];
+      const before=idLearned.size;(kparts[1]||'').split(',').filter(Boolean).forEach(n=>{const c=IDIOMS[+n];if(c)idLearned.add(c.id)});
+      const idiomLocalExtra=idiomPack()!==(kparts[1]||'');
+      if(idLearned.size>before){try{localStorage.setItem('hj-idiom',JSON.stringify([...idLearned]))}catch(e){}if(S.mode==='idiom'&&I)drawIdiom(false)}
       if((sv.upd||0)>lu0){
         const k2=new Set(Array.from(sv.known||''));known.forEach(x=>k2.add(x));
         const w2={};(sv.wrong||'').split(',').filter(Boolean).forEach(x=>{const a=Array.from(x),n=parseInt(a.slice(1).join(''),10);if(a[0]&&n>0)w2[a[0]]=n});
@@ -915,7 +921,7 @@ async function pullState(){
       }else if((sv.stamps||0)>stamps){stamps=sv.stamps;try{localStorage.setItem('hj-stamps',JSON.stringify(stamps))}catch(e){}changed=true}
       if(changed){renderTools();renderLevels()}
       stateReady=true;
-      if(stDirty||lu0>(sv.upd||0)||stamps>(sv.stamps||0))pushState();
+      if(stDirty||idiomLocalExtra||lu0>(sv.upd||0)||stamps>(sv.stamps||0))pushState();
       return;
     }
   }catch(e){}

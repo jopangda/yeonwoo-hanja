@@ -1283,7 +1283,9 @@ function speakStory(c){
 }
 function newIdiom(){
   const g=S.igroup||'all',p=IDIOMS.filter(c=>g==='all'||c.g===g);
-  I={list:p,i:Math.min((I&&I.g===g&&I.i)||0,Math.max(0,p.length-1)),g,done:(I&&I.done)||0};
+  /* 들어올 때마다 새로 섞고, 아직 안 배운 성어가 먼저 나오게 함 */
+  const mix=l=>shuffle(l.filter(c=>!idLearned.has(c.id))).concat(shuffle(l.filter(c=>idLearned.has(c.id))));
+  I={list:mix(p),i:0,g,done:(I&&I.done)||0,mix,src:p};
   drawIdiom(true);
 }
 function drawIdiom(auto){
@@ -1320,7 +1322,11 @@ function drawIdiom(auto){
   $('#stage').replaceChildren(bar,card,side);
   if(auto&&S.voice)speakStory(c);
 }
-function moveI(d){I.i=(I.i+d+I.list.length)%I.list.length;drawIdiom(true)}
+function moveI(d){
+  if(d>0&&I.i===I.list.length-1){const last=I.list[I.i];I.list=I.mix(I.src);if(I.list.length>1&&I.list[0]===last)I.list.push(I.list.shift());I.i=0}
+  else I.i=(I.i+d+I.list.length)%I.list.length;
+  drawIdiom(true);
+}
 
 /* ---------- boot ---------- */
 function start(data){

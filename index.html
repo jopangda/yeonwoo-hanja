@@ -293,6 +293,18 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   .qp{padding:10px}
   .qp .h{font-size:104px}
 }
+/* ---- 카드 공부 전체 화면 ---- */
+#ffs{position:fixed;inset:0;z-index:8;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));touch-action:pan-y}
+#ffs .ftop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#ffs .ftop .count{font-size:22px}
+#ffs .fmid{display:flex;align-items:center;justify-content:center;gap:14px;min-height:0}
+#ffs .flash{width:min(calc(100vw - 220px),calc((100dvh - 190px)*.75));max-width:none;margin:0;flex:none}
+#ffs .arrow{font-size:34px;width:88px;height:88px;border-radius:50%;padding:0;flex:none}
+#ffs .fbot{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+#ffs .fbot .btn{font-size:22px;padding:12px 26px}
+@media (max-width:600px){#ffs .flash{width:min(calc(100vw - 24px),calc((100dvh - 290px)*.75))}#ffs .fmid{flex-wrap:wrap;align-content:center}#ffs .arrow{width:64px;height:64px;font-size:26px;order:2}}
+body.ffs-on{overflow:hidden}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:420px){h1{font-size:23px}.tab{font-size:17px;gap:4px}.tab .ti{font-size:20px}.qp .h{font-size:100px}}
 
@@ -994,6 +1006,7 @@ const fitQ=matchMedia('(orientation:landscape) and (min-width:900px)');
 function setSH(){const st=$('#stage');if(fitQ.matches&&st)document.documentElement.style.setProperty('--sh',st.clientHeight+'px')}
 function startMode(){
   hideOv();try{speechSynthesis.cancel()}catch(e){}
+  if(flashFs&&(S.mode!=='flash'||!pool().length))setFlashFs(false,true);
   document.body.classList.toggle('idm',S.mode==='idiom');
   $('#stage').className=S.mode==='match'?'m':S.mode==='quiz'?'two q':S.mode==='idiom'?'two i':'two';setSH();
   if(S.mode==='idiom'){newIdiom();return}
@@ -1153,8 +1166,9 @@ function drawFlash(){
       el('button',{class:'btn sm','aria-pressed':String(S.order==='seq'),onclick:()=>{S.order='seq';savePrefs();newFlash()}},'순서대로'),
       el('button',{class:'btn sm','aria-pressed':String(S.order==='mix'),onclick:()=>{S.order='mix';savePrefs();newFlash()}},'섞어서')),
     el('button',{class:'btn sm','aria-pressed':String(S.unknownOnly),onclick:()=>{S.unknownOnly=!S.unknownOnly;savePrefs();newFlash()}},'모르는 것만'),
-    el('div',{class:'muted'},`아는 글자 ${knownN} / ${pl.length}`));
-  if(!F.list.length){
+    el('div',{class:'muted'},`아는 글자 ${knownN} / ${pl.length}`),
+    F.list.length?el('button',{class:'btn sm primary',onclick:()=>setFlashFs(true)},'⛶ 크게 보기'):null);
+  if(!F.list.length){setFlashFs(false,true);
     $('#stage').replaceChildren(opts,el('div',{class:'empty'},el('p',{style:'font-size:22px;margin:0 0 12px'},'고른 급수를 모두 안다고 표시했어요!'),el('button',{class:'btn primary',onclick:()=>{S.unknownOnly=false;savePrefs();newFlash()}},'전체 다시 보기')));
     return;
   }
@@ -1172,7 +1186,32 @@ function drawFlash(){
     el('button',{class:'btn ok',onclick:()=>{known.add(c.id);save('hj-known',[...known]);hit(c);sfx.good();moveF(1)}},'알아요 ✓'),
     el('button',{class:'btn',onclick:()=>{known.delete(c.id);save('hj-known',[...known]);miss(c);moveF(1)}},'또 볼래요'),
     el('button',{class:'btn',onclick:()=>speak(c)},'소리 듣기'));
+  if(flashFs){
+    let ly=$('#ffs');
+    if(!ly){
+      ly=el('div',{id:'ffs',role:'dialog','aria-label':'카드 공부 크게 보기'});document.body.append(ly);document.body.classList.add('ffs-on');
+      /* 옆으로 밀어서 넘기기 */
+      let sx=null,sy=0,sw=false;
+      ly.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;sw=false});
+      ly.addEventListener('pointerup',e=>{if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){sw=true;setTimeout(()=>sw=false,350);moveF(dx<0?1:-1)}});
+      ly.addEventListener('click',e=>{if(sw){sw=false;e.stopPropagation();e.preventDefault()}},true);
+    }
+    ly.replaceChildren(
+      el('div',{class:'ftop'},el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),el('button',{class:'btn',onclick:()=>setFlashFs(false)},'✕ 작게 보기')),
+      el('div',{class:'fmid'},el('button',{class:'btn arrow','aria-label':'이전',onclick:()=>moveF(-1)},'◀'),card,el('button',{class:'btn arrow','aria-label':'다음',onclick:()=>moveF(1)},'▶')),
+      el('div',{class:'fbot'},...mark.children));
+    return;
+  }
   $('#stage').replaceChildren(opts,card,el('div',{class:'side'},nav,mark));
+}
+let flashFs=false;
+function setFlashFs(on,noDraw){
+  if(on&&S.mode!=='flash')on=false;
+  flashFs=on;
+  if(!on){const ly=$('#ffs');if(ly)ly.remove();document.body.classList.remove('ffs-on')}
+  else{const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+    if(req&&!(document.fullscreenElement||document.webkitFullscreenElement)){try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch(e){}}}
+  if(!noDraw&&S.mode==='flash'&&F)drawFlash();
 }
 function moveF(d){
   if(d>0&&F.i===F.list.length-1){award();showOv('한 바퀴 끝!',`카드 ${F.list.length}장을 다 봤어요`,newFlash);return}
@@ -1363,7 +1402,7 @@ function start(data){
    addEventListener('click',e=>{if(bx.classList.contains('open')&&!bx.contains(e.target)){bx.classList.remove('open');mb.setAttribute('aria-expanded','false')}});}
   addEventListener('keydown',e=>{
     if($('#ov').classList.contains('show')){if(e.key==='Escape')hideOv();return}
-    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1)}
+    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1);else if(e.key==='Escape'&&flashFs)setFlashFs(false)}
   });
   try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice}catch(e){}
   renderLevels();renderTabs();renderTools();startMode();

@@ -293,17 +293,32 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   .qp{padding:10px}
   .qp .h{font-size:104px}
 }
-/* ---- 카드 공부 전체 화면 ---- */
-#ffs{position:fixed;inset:0;z-index:8;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;
-  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));touch-action:pan-y}
-#ffs .ftop{display:flex;align-items:center;justify-content:space-between;gap:10px}
-#ffs .ftop .count{font-size:22px}
-#ffs .fmid{display:flex;align-items:center;justify-content:center;gap:14px;min-height:0}
-#ffs .flash{width:min(calc(100vw - 220px),calc((100dvh - 190px)*.75));max-width:none;margin:0;flex:none}
-#ffs .arrow{font-size:34px;width:88px;height:88px;border-radius:50%;padding:0;flex:none}
-#ffs .fbot{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
-#ffs .fbot .btn{font-size:22px;padding:12px 26px}
-@media (max-width:600px){#ffs .flash{width:min(calc(100vw - 24px),calc((100dvh - 290px)*.75))}#ffs .fmid{flex-wrap:wrap;align-content:center}#ffs .arrow{width:64px;height:64px;font-size:26px;order:2}}
+/* ---- 카드 공부: 가로 전체 화면 ---- */
+#ffs{position:fixed;inset:0;z-index:8;background:var(--bg);display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,260px);gap:14px;align-items:center;
+  padding:max(12px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));touch-action:pan-y}
+#ffs .fmid{display:flex;align-items:center;justify-content:center;gap:16px;min-width:0;height:100%}
+#ffs .flash{width:min(calc(100vw - 520px),calc((100dvh - 30px)*.75));max-width:none;margin:0;flex:none}
+#ffs .arrow{font-size:34px;width:84px;height:84px;border-radius:50%;padding:0;flex:none}
+#ffs .fside{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:12px;height:100%;min-height:0}
+#ffs .fexit{align-self:flex-end}
+#ffs .count{font-size:30px;text-align:center}
+#ffs .fmark{display:flex;flex-direction:column;gap:10px}
+#ffs .fmark .btn{font-size:22px;padding:14px 12px}
+#ffs .fopts{display:flex;flex-direction:column;gap:8px;align-items:center;margin-top:6px}
+#ffs .fopts .seg{width:100%}#ffs .fopts .seg .btn{flex:1}
+@media (max-height:520px){#ffs{gap:10px}#ffs .arrow{width:60px;height:60px;font-size:24px}#ffs .flash{width:min(calc(100vw - 420px),calc((100dvh - 24px)*.75))}#ffs .fmark .btn{font-size:18px;padding:8px}#ffs .count{font-size:22px}#ffs .fside{gap:8px}}
+#ffs .frot{display:none}
+@media (orientation:portrait){
+  #ffs .frot:not(.skip){display:flex;position:absolute;inset:0;z-index:2;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:24px;text-align:center}
+  #ffs .frot p{margin:0}
+  .frot-ic{font-family:var(--emoji);font-size:80px;animation:turn 1.6s ease-in-out infinite}
+  #ffs{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  #ffs .flash{width:min(calc(100vw - 180px),calc((100dvh - 330px)*.75))}
+  #ffs .arrow{width:60px;height:60px;font-size:24px}
+  #ffs .fside{height:auto}#ffs .fexit{position:absolute;top:max(12px,env(safe-area-inset-top));right:14px}
+  #ffs .fmark{flex-direction:row;flex-wrap:wrap;justify-content:center}#ffs .fopts{display:none}
+}
+@keyframes turn{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
 body.ffs-on{overflow:hidden}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:420px){h1{font-size:23px}.tab{font-size:17px;gap:4px}.tab .ti{font-size:20px}.qp .h{font-size:100px}}
@@ -1006,7 +1021,7 @@ const fitQ=matchMedia('(orientation:landscape) and (min-width:900px)');
 function setSH(){const st=$('#stage');if(fitQ.matches&&st)document.documentElement.style.setProperty('--sh',st.clientHeight+'px')}
 function startMode(){
   hideOv();try{speechSynthesis.cancel()}catch(e){}
-  if(flashFs&&(S.mode!=='flash'||!pool().length))setFlashFs(false,true);
+  if(S.mode!=='flash'){closeFlashLayer();flashPrev=S.mode}else if(!pool().length)closeFlashLayer();
   document.body.classList.toggle('idm',S.mode==='idiom');
   $('#stage').className=S.mode==='match'?'m':S.mode==='quiz'?'two q':S.mode==='idiom'?'two i':'two';setSH();
   if(S.mode==='idiom'){newIdiom();return}
@@ -1160,16 +1175,17 @@ function newFlash(){
   drawFlash();
 }
 function drawFlash(){
+  const ly=flashLayer();
   const pl=pool(),knownN=pl.filter(c=>known.has(c.id)).length;
-  const opts=el('div',{class:'bar'},
+  const exit=el('button',{class:'btn fexit',onclick:leaveFlash},'✕ 나가기');
+  const opts=el('div',{class:'fopts'},
     el('div',{class:'seg',role:'group','aria-label':'순서'},
       el('button',{class:'btn sm','aria-pressed':String(S.order==='seq'),onclick:()=>{S.order='seq';savePrefs();newFlash()}},'순서대로'),
       el('button',{class:'btn sm','aria-pressed':String(S.order==='mix'),onclick:()=>{S.order='mix';savePrefs();newFlash()}},'섞어서')),
     el('button',{class:'btn sm','aria-pressed':String(S.unknownOnly),onclick:()=>{S.unknownOnly=!S.unknownOnly;savePrefs();newFlash()}},'모르는 것만'),
-    el('div',{class:'muted'},`아는 글자 ${knownN} / ${pl.length}`),
-    F.list.length?el('button',{class:'btn sm primary',onclick:()=>setFlashFs(true)},'⛶ 크게 보기'):null);
-  if(!F.list.length){setFlashFs(false,true);
-    $('#stage').replaceChildren(opts,el('div',{class:'empty'},el('p',{style:'font-size:22px;margin:0 0 12px'},'고른 급수를 모두 안다고 표시했어요!'),el('button',{class:'btn primary',onclick:()=>{S.unknownOnly=false;savePrefs();newFlash()}},'전체 다시 보기')));
+    el('div',{class:'muted'},`아는 글자 ${knownN} / ${pl.length}`));
+  if(!F.list.length){
+    ly.replaceChildren(el('div',{class:'fside'},exit,opts),el('div',{class:'fmid'},el('div',{class:'empty'},el('p',{style:'font-size:22px;margin:0 0 12px'},'고른 급수를 모두 안다고 표시했어요!'),el('button',{class:'btn primary',onclick:()=>{S.unknownOnly=false;savePrefs();newFlash()}},'전체 다시 보기'))),rotHint());
     return;
   }
   const c=F.list[F.i];
@@ -1178,40 +1194,44 @@ function drawFlash(){
     el('div',{class:'inner'},
       el('div',{class:'face a fa'},el('span',{class:'tag'},c.lvName),wrong[c.id]?el('span',{class:'kn',style:'color:var(--seal)'},`틀림 ${wrong[c.id]}번`):known.has(c.id)?el('span',{class:'kn'},'알아요 ✓'):null,el('span',{class:'h'},c.h),el('span',{class:'tap muted'},'눌러서 뒤집기')),
       el('div',{class:'face b fb'},el('span',{class:'tag'},c.lvName),el('span',{class:'e'},c.emo),el('span',{class:'t'},say(c)),el('span',{class:'hs'},c.h),el('span',{class:'meta'},`부수 ${c.rad} · 모두 ${c.tot}획`),c.full&&c.full!==say(c)?el('span',{class:'meta'},c.full):null,el('span',{class:'hint'},c.hint))));
-  const nav=el('div',{class:'row center'},
-    el('button',{class:'btn',onclick:()=>moveF(-1)},'◀ 이전'),
-    el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),
-    el('button',{class:'btn',onclick:()=>moveF(1)},'다음 ▶'));
-  const mark=el('div',{class:'row center'},
+  const mark=el('div',{class:'fmark'},
     el('button',{class:'btn ok',onclick:()=>{known.add(c.id);save('hj-known',[...known]);hit(c);sfx.good();moveF(1)}},'알아요 ✓'),
     el('button',{class:'btn',onclick:()=>{known.delete(c.id);save('hj-known',[...known]);miss(c);moveF(1)}},'또 볼래요'),
-    el('button',{class:'btn',onclick:()=>speak(c)},'소리 듣기'));
-  if(flashFs){
-    let ly=$('#ffs');
-    if(!ly){
-      ly=el('div',{id:'ffs',role:'dialog','aria-label':'카드 공부 크게 보기'});document.body.append(ly);document.body.classList.add('ffs-on');
-      /* 옆으로 밀어서 넘기기 */
-      let sx=null,sy=0,sw=false;
-      ly.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;sw=false});
-      ly.addEventListener('pointerup',e=>{if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){sw=true;setTimeout(()=>sw=false,350);moveF(dx<0?1:-1)}});
-      ly.addEventListener('click',e=>{if(sw){sw=false;e.stopPropagation();e.preventDefault()}},true);
-    }
-    ly.replaceChildren(
-      el('div',{class:'ftop'},el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),el('button',{class:'btn',onclick:()=>setFlashFs(false)},'✕ 작게 보기')),
-      el('div',{class:'fmid'},el('button',{class:'btn arrow','aria-label':'이전',onclick:()=>moveF(-1)},'◀'),card,el('button',{class:'btn arrow','aria-label':'다음',onclick:()=>moveF(1)},'▶')),
-      el('div',{class:'fbot'},...mark.children));
-    return;
-  }
-  $('#stage').replaceChildren(opts,card,el('div',{class:'side'},nav,mark));
+    el('button',{class:'btn',onclick:()=>speak(c)},'🔊 소리 듣기'));
+  ly.replaceChildren(
+    el('div',{class:'fmid'},el('button',{class:'btn arrow','aria-label':'이전',onclick:()=>moveF(-1)},'◀'),card,el('button',{class:'btn arrow','aria-label':'다음',onclick:()=>moveF(1)},'▶')),
+    el('div',{class:'fside'},exit,el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),mark,opts),
+    rotHint());
 }
-let flashFs=false;
-function setFlashFs(on,noDraw){
-  if(on&&S.mode!=='flash')on=false;
-  flashFs=on;
-  if(!on){const ly=$('#ffs');if(ly)ly.remove();document.body.classList.remove('ffs-on')}
-  else{const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
-    if(req&&!(document.fullscreenElement||document.webkitFullscreenElement)){try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch(e){}}}
-  if(!noDraw&&S.mode==='flash'&&F)drawFlash();
+/* 카드 공부는 언제나 가로 전체 화면으로만 */
+let flashPrev='match',rotSkip=false;
+function rotHint(){
+  return el('div',{class:'frot'+(rotSkip?' skip':'')},el('div',{class:'frot-ic','aria-hidden':'true'},'📱'),el('p',{},'가로로 돌려 주세요'),
+    el('button',{class:'btn sm',onclick:e=>{rotSkip=true;e.currentTarget.parentElement.classList.add('skip')}},'그냥 볼래요'));
+}
+function goFull(){
+  const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+  const lock=()=>{try{const o=screen.orientation;if(o&&o.lock){const r=o.lock('landscape');if(r&&r.catch)r.catch(()=>{})}}catch(e){}};
+  if(document.fullscreenElement||document.webkitFullscreenElement||!req){lock();return}
+  try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.then)r.then(lock,()=>{});else lock()}catch(e){}
+}
+function flashLayer(){
+  let ly=$('#ffs');if(ly)return ly;
+  ly=el('div',{id:'ffs',role:'dialog','aria-label':'카드 공부'});document.body.append(ly);document.body.classList.add('ffs-on');
+  goFull();
+  /* 옆으로 밀어서 넘기기 */
+  let sx=null,sy=0,sw=false;
+  ly.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;sw=false});
+  ly.addEventListener('pointerup',e=>{if(sx===null||!F||!F.list.length)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){sw=true;setTimeout(()=>sw=false,350);moveF(dx<0?1:-1)}});
+  ly.addEventListener('click',e=>{if(sw){sw=false;e.stopPropagation();e.preventDefault()}},true);
+  return ly;
+}
+function closeFlashLayer(){
+  const ly=$('#ffs');if(!ly)return;ly.remove();document.body.classList.remove('ffs-on');
+  try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}
+}
+function leaveFlash(){
+  closeFlashLayer();S.mode=flashPrev&&flashPrev!=='flash'?flashPrev:'match';savePrefs();renderTabs();startMode();
 }
 function moveF(d){
   if(d>0&&F.i===F.list.length-1){award();showOv('한 바퀴 끝!',`카드 ${F.list.length}장을 다 봤어요`,newFlash);return}
@@ -1383,7 +1403,7 @@ function start(data){
    const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement)||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;
    const upd=()=>{fb.hidden=!req||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;fb.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'전체 화면 끝내기':'전체 화면'};
    fb.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.'))}}catch(e){note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.')}};
-   addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();
+   addEventListener('fullscreenchange',()=>{if($('#ffs'))goFull()});addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();
    /* 터치 기기: 첫 터치 때 자동으로 전체 화면 (브라우저는 터치 없이 전체 화면을 허용하지 않음) */
    if(req&&matchMedia('(pointer:coarse)').matches){
      const auto=()=>{removeEventListener('pointerup',auto,true);removeEventListener('click',auto,true);
@@ -1402,7 +1422,7 @@ function start(data){
    addEventListener('click',e=>{if(bx.classList.contains('open')&&!bx.contains(e.target)){bx.classList.remove('open');mb.setAttribute('aria-expanded','false')}});}
   addEventListener('keydown',e=>{
     if($('#ov').classList.contains('show')){if(e.key==='Escape')hideOv();return}
-    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1);else if(e.key==='Escape'&&flashFs)setFlashFs(false)}
+    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1);else if((e.key===' '||e.key==='Enter')&&document.activeElement?.tagName!=='BUTTON'){e.preventDefault();$('#ffs .flash')?.click()}else if(e.key==='Escape')leaveFlash()}
   });
   try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice}catch(e){}
   renderLevels();renderTabs();renderTools();startMode();

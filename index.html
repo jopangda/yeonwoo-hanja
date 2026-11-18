@@ -320,6 +320,13 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 }
 @keyframes turn{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
 body.ffs-on{overflow:hidden}
+/* ---- 왕관 5개 선물 팝업 ---- */
+.giftbox .gcrowns{font-family:var(--emoji);font-size:34px;letter-spacing:2px}
+.gdad{position:relative;margin:6px 0}
+.gdad img{width:180px;height:180px;object-fit:contain;background:#fff;border-radius:28px;border:5px solid var(--sun);box-shadow:0 5px 0 var(--line);animation:hop .6s ease-in-out infinite alternate}
+.gdad .gbox{position:absolute;right:-30px;bottom:-6px;font-family:var(--emoji);font-size:60px;animation:hop .6s ease-in-out .3s infinite alternate}
+.gmsg{font-size:26px;color:var(--seal);margin:4px 0 0}
+@media (max-height:520px){.gdad img{width:120px;height:120px}.giftbox .gcrowns{font-size:24px}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:420px){h1{font-size:23px}.tab{font-size:17px;gap:4px}.tab .ti{font-size:20px}.qp .h{font-size:100px}}
 
@@ -878,12 +885,16 @@ function renderTabs(){
 }
 function renderTools(){
   $('#stampN').textContent=stamps%FRIENDS.length;
-  $('#crownN').textContent=Math.floor(stamps/FRIENDS.length);
+  $('#crownN').textContent=crowns();
   $('#sfxBtn').setAttribute('aria-pressed',String(S.sfx));
   $('#voiceBtn').setAttribute('aria-pressed',String(S.voice));
 }
 function award(){logRound();stamps++;save('hj-stamps',stamps);renderTools();if(stamps%(FRIENDS.length*5)===0)setTimeout(pushState,400)}
-const giftNow=()=>stamps>0&&stamps%(FRIENDS.length*5)===0;
+const GIFT_CROWNS=5;
+const giftNow=()=>stamps>0&&stamps%(FRIENDS.length*GIFT_CROWNS)===0;
+/* 왕관은 5개가 되면 아빠에게 선물을 요청하고 다시 0개부터 */
+const crowns=()=>Math.floor(stamps/FRIENDS.length)%GIFT_CROWNS;
+const giftCount=()=>Math.floor(stamps/(FRIENDS.length*GIFT_CROWNS));
 let tT;
 function toast(c){
   const t=$('#toast');
@@ -985,10 +996,26 @@ const curStamp=()=>((stamps-1)%FRIENDS.length)+1;
 function milestone(){
   const c=curStamp();
   if(c===12)return '열두 띠 친구가 모두 모였어요!';
-  if(c===FRIENDS.length)return `친구 20명 완성! 왕관 ${stamps/FRIENDS.length}개째 👑 도장판은 0부터 다시 시작해요`;
+  if(c===FRIENDS.length)return `친구 20명 완성! 왕관 ${crowns()}개째 👑 도장판은 0부터 다시 시작해요`;
   return null;
 }
+function showGift(again){
+  const ov=$('#ov');
+  ov.replaceChildren(el('div',{class:'ovbox giftbox',role:'dialog','aria-modal':'true','aria-label':'아빠에게 선물을 요청했어요'},
+    el('div',{class:'gcrowns','aria-hidden':'true'},'👑👑👑👑👑'),
+    el('h2',{},'왕관 5개를 다 모았어요!'),
+    el('div',{class:'gdad'},el('span',{class:'gbox','aria-hidden':'true'},'🎁'),el('img',{src:'dad-mini.jpg',alt:'연우 아빠'})),
+    el('p',{class:'gmsg'},'아빠에게 선물을 요청했어요!'),
+    el('p',{class:'muted'},`${giftCount()}번째 선물 · 왕관은 다시 0개부터 모아요`),
+    el('div',{class:'row center',style:'margin-top:12px'},
+      el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
+      el('button',{class:'btn',onclick:hideOv},'닫기'))));
+  ov.classList.add('show');
+  sfx.win();burst(innerWidth/2,innerHeight/2,40);setTimeout(()=>burst(innerWidth/2,innerHeight/3,30),500);
+  setTimeout(()=>ov.querySelector('.btn.primary')?.focus(),60);
+}
 function showOv(title,sub,again,stamp=true,scene=null){
+  if(stamp&&giftNow()){showGift(again);return}
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':title},
     stamp?sceneEl(scene,el('div',{class:'seal sm','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요'))):null,
@@ -996,7 +1023,6 @@ function showOv(title,sub,again,stamp=true,scene=null){
     el('p',{class:'muted'},sub),
     stamp?el('p',{},`도장 ${curStamp()}개째!`):null,
     stamp&&milestone()?el('p',{class:'mile'},milestone()):null,
-    stamp&&giftNow()?el('div',{class:'gift'},el('span',{'aria-hidden':'true'},'🎁'),el('div',{},el('b',{},`왕관 ${stamps/FRIENDS.length}개 달성!`),el('div',{},'아빠에게 선물을 요청해 주세요'),el('small',{},'아빠 메일로도 알려 드려요'))):null,
     stamp?el('p',{class:'newfr'},`${FRIENDS[curStamp()-1][0]} ${frName(FRIENDS[curStamp()-1])} 도착!`):null,
     el('div',{class:'row center',style:'margin-top:12px'},
       el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
@@ -1012,7 +1038,7 @@ function showFriends(){
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':'친구 모음'},
     el('h2',{},'열두 띠와 옛이야기 친구들'),
     el('p',{class:'muted'},`도장 1개마다 한 친구씩 달려와요 · ${stamps%FRIENDS.length} / ${FRIENDS.length}`),
-    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 왕관 ${Math.floor(stamps/FRIENDS.length)}개 · 20개를 다 모으면 왕관이 하나 늘고 다시 시작해요`):null,
+    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 왕관 ${crowns()} / ${GIFT_CROWNS}개 · 도장 20개마다 왕관 1개, 왕관 5개면 아빠에게 선물 요청!`):null,
     el('div',{class:'friends',style:'margin:10px 0'},...FRIENDS.map((f,i)=>i<stamps%FRIENDS.length?el('div',{class:'fr'},el('span',{},f[0]),frName(f)):el('div',{class:'fr lock'},el('span',{},'?'),'???'))),
     el('button',{class:'btn primary',onclick:hideOv},'닫기')));
   ov.classList.add('show');

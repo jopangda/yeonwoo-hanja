@@ -293,6 +293,40 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   .qp{padding:10px}
   .qp .h{font-size:104px}
 }
+/* ---- 카드 공부: 가로 전체 화면 ---- */
+#ffs{position:fixed;inset:0;z-index:8;background:var(--bg);display:grid;grid-template-columns:minmax(0,1fr) minmax(200px,260px);gap:14px;align-items:center;
+  padding:max(12px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));touch-action:pan-y}
+#ffs .fmid{display:flex;align-items:center;justify-content:center;gap:16px;min-width:0;height:100%}
+#ffs .flash{width:min(calc(100vw - 520px),calc((100dvh - 30px)*.75));max-width:none;margin:0;flex:none}
+#ffs .arrow{font-size:34px;width:84px;height:84px;border-radius:50%;padding:0;flex:none}
+#ffs .fside{display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:12px;height:100%;min-height:0}
+#ffs .fexit{align-self:flex-end}
+#ffs .count{font-size:30px;text-align:center}
+#ffs .fmark{display:flex;flex-direction:column;gap:10px}
+#ffs .fmark .btn{font-size:22px;padding:14px 12px}
+#ffs .fopts{display:flex;flex-direction:column;gap:8px;align-items:center;margin-top:6px}
+#ffs .fopts .seg{width:100%}#ffs .fopts .seg .btn{flex:1}
+@media (max-height:520px){#ffs{gap:10px}#ffs .arrow{width:60px;height:60px;font-size:24px}#ffs .flash{width:min(calc(100vw - 420px),calc((100dvh - 24px)*.75))}#ffs .fmark .btn{font-size:18px;padding:8px}#ffs .count{font-size:22px}#ffs .fside{gap:8px}}
+#ffs .frot{display:none}
+@media (orientation:portrait){
+  #ffs .frot:not(.skip){display:flex;position:absolute;inset:0;z-index:2;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:24px;text-align:center}
+  #ffs .frot p{margin:0}
+  .frot-ic{font-family:var(--emoji);font-size:80px;animation:turn 1.6s ease-in-out infinite}
+  #ffs{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  #ffs .flash{width:min(calc(100vw - 180px),calc((100dvh - 330px)*.75))}
+  #ffs .arrow{width:60px;height:60px;font-size:24px}
+  #ffs .fside{height:auto}#ffs .fexit{position:absolute;top:max(12px,env(safe-area-inset-top));right:14px}
+  #ffs .fmark{flex-direction:row;flex-wrap:wrap;justify-content:center}#ffs .fopts{display:none}
+}
+@keyframes turn{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+body.ffs-on{overflow:hidden}
+/* ---- 왕관 5개 선물 팝업 ---- */
+.giftbox .gcrowns{font-family:var(--emoji);font-size:34px;letter-spacing:2px}
+.gdad{position:relative;margin:6px 0}
+.gdad img{width:180px;height:180px;object-fit:contain;background:#fff;border-radius:28px;border:5px solid var(--sun);box-shadow:0 5px 0 var(--line);animation:hop .6s ease-in-out infinite alternate}
+.gdad .gbox{position:absolute;right:-30px;bottom:-6px;font-family:var(--emoji);font-size:60px;animation:hop .6s ease-in-out .3s infinite alternate}
+.gmsg{font-size:26px;color:var(--seal);margin:4px 0 0}
+@media (max-height:520px){.gdad img{width:120px;height:120px}.giftbox .gcrowns{font-size:24px}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:420px){h1{font-size:23px}.tab{font-size:17px;gap:4px}.tab .ti{font-size:20px}.qp .h{font-size:100px}}
 
@@ -851,12 +885,16 @@ function renderTabs(){
 }
 function renderTools(){
   $('#stampN').textContent=stamps%FRIENDS.length;
-  $('#crownN').textContent=Math.floor(stamps/FRIENDS.length);
+  $('#crownN').textContent=crowns();
   $('#sfxBtn').setAttribute('aria-pressed',String(S.sfx));
   $('#voiceBtn').setAttribute('aria-pressed',String(S.voice));
 }
 function award(){logRound();stamps++;save('hj-stamps',stamps);renderTools();if(stamps%(FRIENDS.length*5)===0)setTimeout(pushState,400)}
-const giftNow=()=>stamps>0&&stamps%(FRIENDS.length*5)===0;
+const GIFT_CROWNS=5;
+const giftNow=()=>stamps>0&&stamps%(FRIENDS.length*GIFT_CROWNS)===0;
+/* 왕관은 5개가 되면 아빠에게 선물을 요청하고 다시 0개부터 */
+const crowns=()=>Math.floor(stamps/FRIENDS.length)%GIFT_CROWNS;
+const giftCount=()=>Math.floor(stamps/(FRIENDS.length*GIFT_CROWNS));
 let tT;
 function toast(c){
   const t=$('#toast');
@@ -958,10 +996,26 @@ const curStamp=()=>((stamps-1)%FRIENDS.length)+1;
 function milestone(){
   const c=curStamp();
   if(c===12)return '열두 띠 친구가 모두 모였어요!';
-  if(c===FRIENDS.length)return `친구 20명 완성! 왕관 ${stamps/FRIENDS.length}개째 👑 도장판은 0부터 다시 시작해요`;
+  if(c===FRIENDS.length)return `친구 20명 완성! 왕관 ${crowns()}개째 👑 도장판은 0부터 다시 시작해요`;
   return null;
 }
+function showGift(again){
+  const ov=$('#ov');
+  ov.replaceChildren(el('div',{class:'ovbox giftbox',role:'dialog','aria-modal':'true','aria-label':'아빠에게 선물을 요청했어요'},
+    el('div',{class:'gcrowns','aria-hidden':'true'},'👑👑👑👑👑'),
+    el('h2',{},'왕관 5개를 다 모았어요!'),
+    el('div',{class:'gdad'},el('span',{class:'gbox','aria-hidden':'true'},'🎁'),el('img',{src:'dad-mini.jpg',alt:'연우 아빠'})),
+    el('p',{class:'gmsg'},'아빠에게 선물을 요청했어요!'),
+    el('p',{class:'muted'},`${giftCount()}번째 선물 · 왕관은 다시 0개부터 모아요`),
+    el('div',{class:'row center',style:'margin-top:12px'},
+      el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
+      el('button',{class:'btn',onclick:hideOv},'닫기'))));
+  ov.classList.add('show');
+  sfx.win();burst(innerWidth/2,innerHeight/2,40);setTimeout(()=>burst(innerWidth/2,innerHeight/3,30),500);
+  setTimeout(()=>ov.querySelector('.btn.primary')?.focus(),60);
+}
 function showOv(title,sub,again,stamp=true,scene=null){
+  if(stamp&&giftNow()){showGift(again);return}
   const ov=$('#ov');
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':title},
     stamp?sceneEl(scene,el('div',{class:'seal sm','aria-hidden':'true'},el('span',{},'참'),el('span',{},'잘했어요'))):null,
@@ -969,7 +1023,6 @@ function showOv(title,sub,again,stamp=true,scene=null){
     el('p',{class:'muted'},sub),
     stamp?el('p',{},`도장 ${curStamp()}개째!`):null,
     stamp&&milestone()?el('p',{class:'mile'},milestone()):null,
-    stamp&&giftNow()?el('div',{class:'gift'},el('span',{'aria-hidden':'true'},'🎁'),el('div',{},el('b',{},`왕관 ${stamps/FRIENDS.length}개 달성!`),el('div',{},'아빠에게 선물을 요청해 주세요'),el('small',{},'아빠 메일로도 알려 드려요'))):null,
     stamp?el('p',{class:'newfr'},`${FRIENDS[curStamp()-1][0]} ${frName(FRIENDS[curStamp()-1])} 도착!`):null,
     el('div',{class:'row center',style:'margin-top:12px'},
       el('button',{class:'btn primary big',onclick:()=>{hideOv();again()}},'한 번 더'),
@@ -985,7 +1038,7 @@ function showFriends(){
   ov.replaceChildren(el('div',{class:'ovbox',role:'dialog','aria-modal':'true','aria-label':'친구 모음'},
     el('h2',{},'열두 띠와 옛이야기 친구들'),
     el('p',{class:'muted'},`도장 1개마다 한 친구씩 달려와요 · ${stamps%FRIENDS.length} / ${FRIENDS.length}`),
-    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 왕관 ${Math.floor(stamps/FRIENDS.length)}개 · 20개를 다 모으면 왕관이 하나 늘고 다시 시작해요`):null,
+    stamps>=FRIENDS.length?el('p',{class:'mile'},`👑 왕관 ${crowns()} / ${GIFT_CROWNS}개 · 도장 20개마다 왕관 1개, 왕관 5개면 아빠에게 선물 요청!`):null,
     el('div',{class:'friends',style:'margin:10px 0'},...FRIENDS.map((f,i)=>i<stamps%FRIENDS.length?el('div',{class:'fr'},el('span',{},f[0]),frName(f)):el('div',{class:'fr lock'},el('span',{},'?'),'???'))),
     el('button',{class:'btn primary',onclick:hideOv},'닫기')));
   ov.classList.add('show');
@@ -994,6 +1047,7 @@ const fitQ=matchMedia('(orientation:landscape) and (min-width:900px)');
 function setSH(){const st=$('#stage');if(fitQ.matches&&st)document.documentElement.style.setProperty('--sh',st.clientHeight+'px')}
 function startMode(){
   hideOv();try{speechSynthesis.cancel()}catch(e){}
+  if(S.mode!=='flash'){closeFlashLayer();flashPrev=S.mode}else if(!pool().length)closeFlashLayer();
   document.body.classList.toggle('idm',S.mode==='idiom');
   $('#stage').className=S.mode==='match'?'m':S.mode==='quiz'?'two q':S.mode==='idiom'?'two i':'two';setSH();
   if(S.mode==='idiom'){newIdiom();return}
@@ -1147,15 +1201,17 @@ function newFlash(){
   drawFlash();
 }
 function drawFlash(){
+  const ly=flashLayer();
   const pl=pool(),knownN=pl.filter(c=>known.has(c.id)).length;
-  const opts=el('div',{class:'bar'},
+  const exit=el('button',{class:'btn fexit',onclick:leaveFlash},'✕ 나가기');
+  const opts=el('div',{class:'fopts'},
     el('div',{class:'seg',role:'group','aria-label':'순서'},
       el('button',{class:'btn sm','aria-pressed':String(S.order==='seq'),onclick:()=>{S.order='seq';savePrefs();newFlash()}},'순서대로'),
       el('button',{class:'btn sm','aria-pressed':String(S.order==='mix'),onclick:()=>{S.order='mix';savePrefs();newFlash()}},'섞어서')),
     el('button',{class:'btn sm','aria-pressed':String(S.unknownOnly),onclick:()=>{S.unknownOnly=!S.unknownOnly;savePrefs();newFlash()}},'모르는 것만'),
     el('div',{class:'muted'},`아는 글자 ${knownN} / ${pl.length}`));
   if(!F.list.length){
-    $('#stage').replaceChildren(opts,el('div',{class:'empty'},el('p',{style:'font-size:22px;margin:0 0 12px'},'고른 급수를 모두 안다고 표시했어요!'),el('button',{class:'btn primary',onclick:()=>{S.unknownOnly=false;savePrefs();newFlash()}},'전체 다시 보기')));
+    ly.replaceChildren(el('div',{class:'fside'},exit,opts),el('div',{class:'fmid'},el('div',{class:'empty'},el('p',{style:'font-size:22px;margin:0 0 12px'},'고른 급수를 모두 안다고 표시했어요!'),el('button',{class:'btn primary',onclick:()=>{S.unknownOnly=false;savePrefs();newFlash()}},'전체 다시 보기'))),rotHint());
     return;
   }
   const c=F.list[F.i];
@@ -1164,15 +1220,44 @@ function drawFlash(){
     el('div',{class:'inner'},
       el('div',{class:'face a fa'},el('span',{class:'tag'},c.lvName),wrong[c.id]?el('span',{class:'kn',style:'color:var(--seal)'},`틀림 ${wrong[c.id]}번`):known.has(c.id)?el('span',{class:'kn'},'알아요 ✓'):null,el('span',{class:'h'},c.h),el('span',{class:'tap muted'},'눌러서 뒤집기')),
       el('div',{class:'face b fb'},el('span',{class:'tag'},c.lvName),el('span',{class:'e'},c.emo),el('span',{class:'t'},say(c)),el('span',{class:'hs'},c.h),el('span',{class:'meta'},`부수 ${c.rad} · 모두 ${c.tot}획`),c.full&&c.full!==say(c)?el('span',{class:'meta'},c.full):null,el('span',{class:'hint'},c.hint))));
-  const nav=el('div',{class:'row center'},
-    el('button',{class:'btn',onclick:()=>moveF(-1)},'◀ 이전'),
-    el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),
-    el('button',{class:'btn',onclick:()=>moveF(1)},'다음 ▶'));
-  const mark=el('div',{class:'row center'},
+  const mark=el('div',{class:'fmark'},
     el('button',{class:'btn ok',onclick:()=>{known.add(c.id);save('hj-known',[...known]);hit(c);sfx.good();moveF(1)}},'알아요 ✓'),
     el('button',{class:'btn',onclick:()=>{known.delete(c.id);save('hj-known',[...known]);miss(c);moveF(1)}},'또 볼래요'),
-    el('button',{class:'btn',onclick:()=>speak(c)},'소리 듣기'));
-  $('#stage').replaceChildren(opts,card,el('div',{class:'side'},nav,mark));
+    el('button',{class:'btn',onclick:()=>speak(c)},'🔊 소리 듣기'));
+  ly.replaceChildren(
+    el('div',{class:'fmid'},el('button',{class:'btn arrow','aria-label':'이전',onclick:()=>moveF(-1)},'◀'),card,el('button',{class:'btn arrow','aria-label':'다음',onclick:()=>moveF(1)},'▶')),
+    el('div',{class:'fside'},exit,el('span',{class:'count'},`${F.i+1} / ${F.list.length}`),mark,opts),
+    rotHint());
+}
+/* 카드 공부는 언제나 가로 전체 화면으로만 */
+let flashPrev='match',rotSkip=false;
+function rotHint(){
+  return el('div',{class:'frot'+(rotSkip?' skip':'')},el('div',{class:'frot-ic','aria-hidden':'true'},'📱'),el('p',{},'가로로 돌려 주세요'),
+    el('button',{class:'btn sm',onclick:e=>{rotSkip=true;e.currentTarget.parentElement.classList.add('skip')}},'그냥 볼래요'));
+}
+function goFull(){
+  const de=document.documentElement,req=de.requestFullscreen||de.webkitRequestFullscreen;
+  const lock=()=>{try{const o=screen.orientation;if(o&&o.lock){const r=o.lock('landscape');if(r&&r.catch)r.catch(()=>{})}}catch(e){}};
+  if(document.fullscreenElement||document.webkitFullscreenElement||!req){lock();return}
+  try{const r=req.call(de,{navigationUI:'hide'});if(r&&r.then)r.then(lock,()=>{});else lock()}catch(e){}
+}
+function flashLayer(){
+  let ly=$('#ffs');if(ly)return ly;
+  ly=el('div',{id:'ffs',role:'dialog','aria-label':'카드 공부'});document.body.append(ly);document.body.classList.add('ffs-on');
+  goFull();
+  /* 옆으로 밀어서 넘기기 */
+  let sx=null,sy=0,sw=false;
+  ly.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;sw=false});
+  ly.addEventListener('pointerup',e=>{if(sx===null||!F||!F.list.length)return;const dx=e.clientX-sx,dy=e.clientY-sy;sx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){sw=true;setTimeout(()=>sw=false,350);moveF(dx<0?1:-1)}});
+  ly.addEventListener('click',e=>{if(sw){sw=false;e.stopPropagation();e.preventDefault()}},true);
+  return ly;
+}
+function closeFlashLayer(){
+  const ly=$('#ffs');if(!ly)return;ly.remove();document.body.classList.remove('ffs-on');
+  try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}
+}
+function leaveFlash(){
+  closeFlashLayer();S.mode=flashPrev&&flashPrev!=='flash'?flashPrev:'match';savePrefs();renderTabs();startMode();
 }
 function moveF(d){
   if(d>0&&F.i===F.list.length-1){award();showOv('한 바퀴 끝!',`카드 ${F.list.length}장을 다 봤어요`,newFlash);return}
@@ -1344,7 +1429,7 @@ function start(data){
    const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement)||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;
    const upd=()=>{fb.hidden=!req||matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches;fb.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'전체 화면 끝내기':'전체 화면'};
    fb.onclick=()=>{try{if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{const r=req.call(de,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.'))}}catch(e){note('이 브라우저에서는 전체 화면을 켤 수 없어요. 홈 화면에 추가해서 열어 주세요.')}};
-   addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();
+   addEventListener('fullscreenchange',()=>{if($('#ffs'))goFull()});addEventListener('fullscreenchange',upd);addEventListener('webkitfullscreenchange',upd);upd();
    /* 터치 기기: 첫 터치 때 자동으로 전체 화면 (브라우저는 터치 없이 전체 화면을 허용하지 않음) */
    if(req&&matchMedia('(pointer:coarse)').matches){
      const auto=()=>{removeEventListener('pointerup',auto,true);removeEventListener('click',auto,true);
@@ -1363,7 +1448,7 @@ function start(data){
    addEventListener('click',e=>{if(bx.classList.contains('open')&&!bx.contains(e.target)){bx.classList.remove('open');mb.setAttribute('aria-expanded','false')}});}
   addEventListener('keydown',e=>{
     if($('#ov').classList.contains('show')){if(e.key==='Escape')hideOv();return}
-    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1)}
+    if(S.mode==='flash'&&F&&F.list.length){if(e.key==='ArrowRight')moveF(1);else if(e.key==='ArrowLeft')moveF(-1);else if((e.key===' '||e.key==='Enter')&&document.activeElement?.tagName!=='BUTTON'){e.preventDefault();$('#ffs .flash')?.click()}else if(e.key==='Escape')leaveFlash()}
   });
   try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice}catch(e){}
   renderLevels();renderTabs();renderTools();startMode();
